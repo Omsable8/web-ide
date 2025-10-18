@@ -1,0 +1,7 @@
+flask
+flask-cors
+flask-socketio
+python-socketio
+paramiko
+python-dotenv
+cryptography
