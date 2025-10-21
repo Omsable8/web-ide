@@ -13,15 +13,6 @@ using namespace std;
 
 int main() {
     // Sample C++ code for competitive programming
-    int n;
-    cout << "Enter number of elements: ";
-    cin >> n;
-    
-    vector<int> arr(n);
-    for(int i = 0; i < n; i++) {
-        cin >> arr[i];
-    }
-    
     // Your solution here
     cout << "Hello from C++!" << endl;
     
@@ -29,8 +20,6 @@ int main() {
 }`,
   python: `# Sample Python code for competitive programming
 def solve():
-    n = int(input("Enter number of elements: "))
-    arr = list(map(int, input().split()))
     
     # Your solution here
     print("Hello from Python!")
@@ -42,20 +31,10 @@ if __name__ == "__main__":
 public class Main {
     public static void main(String[] args) {
         // Sample Java code for competitive programming
-        Scanner sc = new Scanner(System.in);
-        
-        System.out.print("Enter number of elements: ");
-        int n = sc.nextInt();
-        
-        int[] arr = new int[n];
-        for(int i = 0; i < n; i++) {
-            arr[i] = sc.nextInt();
-        }
         
         // Your solution here
         System.out.println("Hello from Java!");
         
-        sc.close();
     }
 }`,
 }

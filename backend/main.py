@@ -112,6 +112,15 @@ def run_code():
 # AI Chatbot Endpoints
 # ============================================================================
 
+@app.route('/api/ai/set-model', methods=['POST'])
+def set_model():
+    data = request.get_json()
+    model = data.get('model')
+    if not model:
+        return jsonify({"success": False, "error": "No model name provided"}), 400
+    ai_chatbot.model = model
+    return jsonify({"success": True, "message": f"Model switched to {model}"})
+
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
     """Send message to AI chatbot with optional code and error context"""

@@ -50,8 +50,12 @@ class SSHManager:
             }
             
             ext = file_extensions.get(language.lower(), "txt")
-            filename = f"temp_code_{int(time.time())}.{ext}"
-            
+            filename = ""
+            if language.lower() == "java":
+                filename += "Main.java"
+                exec_cmd = f"javac {filename} && java Main"
+            else:
+                filename += f"temp_code_{int(time.time())}.{ext}"
             # Write code to file using echo
             escaped_code = code.replace('"', '\\"').replace('$', '\\$')
             write_cmd = f'echo "{escaped_code}" > {filename}'
@@ -64,9 +68,7 @@ class SSHManager:
                 exec_cmd = f"python3 {filename}"
             elif language.lower() == "cpp":
                 exec_cmd = f"g++ {filename} -o temp_code_{int(time.time())} && ./temp_code_{int(time.time())}"
-            elif language.lower() == "java":
-                exec_cmd = f"javac {filename} && java TempCode"
-            else:
+            elif language.lower() != "java":
                 return {"success": False, "error": f"Unsupported language: {language}"}
             
             # Execute the code
@@ -78,7 +80,7 @@ class SSHManager:
             exit_code = stdout.channel.recv_exit_status()
             
             # Cleanup
-            cleanup_cmd = f"rm -f {filename} temp_code_*"
+            cleanup_cmd = f"rm -f {filename} Main.class temp_code_*"
             self.client.exec_command(cleanup_cmd)
             
             if exit_code != 0 and error:

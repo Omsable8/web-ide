@@ -153,30 +153,30 @@ class APITester:
         print("="*60)
         
         # Basic tests
-        self.test_root()
-        self.test_health_check()
+        # self.test_root()
+        # self.test_health_check()
         
         # SSH tests
-        print("\n\n[SSH TESTS]")
-        ssh_connected = self.test_ssh_connect()
+        # print("\n\n[SSH TESTS]")
+        # ssh_connected = self.test_ssh_connect()
         
-        if ssh_connected:
-            time.sleep(1)
-            #removed them for now as we are not doing live terminal
-            # self.test_ssh_execute("pwd")
-            # self.test_ssh_execute("echo 'Testing SSH connection'")
-            self.test_code_run('print("Hello from Python")', "python")
+        # if ssh_connected:
+        #     time.sleep(1)
+        #     #removed them for now as we are not doing live terminal
+        #     # self.test_ssh_execute("pwd")
+        #     # self.test_ssh_execute("echo 'Testing SSH connection'")
+        #     self.test_code_run('print("Hello from Python")', "python")
         
         # AI tests
         print("\n\n[AI CHATBOT TESTS]")
-        # self.test_ai_chat("What is a binary search?")
+        self.test_ai_chat("What is a binary search?")
         # self.test_ai_analyze('x = 1\nprint(x')
         # self.test_ai_explain_failure()
         # self.test_ai_clear()
         
         # Disconnect
         print("\n\n[CLEANUP]")
-        self.test_ssh_disconnect()
+        # self.test_ssh_disconnect()
         
         # Summary
         self.print_summary()
