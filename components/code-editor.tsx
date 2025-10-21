@@ -39,7 +39,7 @@ public class Main {
 }`,
 }
 
-export function CodeEditor() {
+export function CodeEditor({ onCodeExecuted }: { onCodeExecuted?: (output: string, code: string) => void }) {
   const [language, setLanguage] = useState<"cpp" | "python" | "java">("cpp")
   const [code, setCode] = useState(SAMPLE_CODE.cpp)
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
@@ -74,13 +74,21 @@ export function CodeEditor() {
       })
 
       if (result.success) {
-        setExecutionOutput(result.output || "Code executed successfully")
+        // setExecutionOutput(result.output || "Code executed successfully")
+        const output = result.output || "Code executed successfully"
+        setExecutionOutput(output)
+        onCodeExecuted?.(output, code)
       } else {
-        setExecutionOutput(`Error: ${result.error || "Unknown error"}`)
+        // setExecutionOutput(`Error: ${result.error || "Unknown error"}`)
+        const errorMsg = `Error: ${result.error || "Unknown error"}`
+        setExecutionOutput(errorMsg)
+        onCodeExecuted?.(errorMsg, code)
       }
     } catch (error) {
       console.error("[v0] Execution error:", error)
-      setExecutionOutput("Error: Failed to execute code. Make sure Flask backend is running on http://localhost:5000")
+      const errorMsg = "Error: Failed to execute code. Make sure Flask backend is running on http://localhost:5000"
+      setExecutionOutput(errorMsg)
+      onCodeExecuted?.(errorMsg, code)
     } finally {
       setIsExecuting(false)
     }

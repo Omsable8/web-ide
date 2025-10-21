@@ -114,12 +114,22 @@ def run_code():
 
 @app.route('/api/ai/set-model', methods=['POST'])
 def set_model():
-    data = request.get_json()
-    model = data.get('model')
-    if not model:
-        return jsonify({"success": False, "error": "No model name provided"}), 400
-    ai_chatbot.model = model
-    return jsonify({"success": True, "message": f"Model switched to {model}"})
+    """Set the AI model to use"""
+    try:
+        data = request.get_json()
+        model = data.get('model', '')
+        
+        if not model:
+            return jsonify({"success": False, "error": "No model provided"}), 400
+        
+        ai_chatbot.set_model(model)
+        
+        return jsonify({"success": True, "message": f"Model set to {model}"})
+        
+    except Exception as e:
+        print(f"[ERROR] Set model failed: {str(e)}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
@@ -212,7 +222,7 @@ def index():
         "endpoints": {
             "ssh": ["/api/ssh/connect", "/api/ssh/disconnect", "/api/ssh/status"],
             "code": ["/api/code/run"],
-            "ai": ["/api/ai/chat", "/api/ai/analyze", "/api/ai/explain-failure", "/api/ai/clear"],
+            "ai": ["/api/ai/chat", "/api/ai/analyze", "/api/ai/set-model", "/api/ai/explain-failure", "/api/ai/clear"],
             "health": ["/api/health"]
         }
     })

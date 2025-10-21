@@ -12,6 +12,14 @@ export default function WebIDE() {
   const [terminalHeight, setTerminalHeight] = useState(250)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showChatbot, setShowChatbot] = useState(true)
+  const [codeContext, setCodeContext] = useState<string>("")
+  const [outputContext, setOutputContext] = useState<string>("")
+
+  const [chatbotWidth, setChatbotWidth] = useState(384)
+  const handleCodeExecuted = (output: string, code: string) => {
+    setOutputContext(output)
+    setCodeContext(code)
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -51,7 +59,7 @@ export default function WebIDE() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Code Editor */}
           <div className="flex-1 overflow-hidden" style={{ height: `calc(100% - ${terminalHeight}px)` }}>
-            <CodeEditor />
+            <CodeEditor onCodeExecuted={handleCodeExecuted} />
           </div>
 
           {/* Resizer */}
@@ -80,14 +88,39 @@ export default function WebIDE() {
 
           {/* Terminal */}
           <div className="overflow-hidden" style={{ height: `${terminalHeight}px` }}>
-            <Terminal />
+            <Terminal outputContext={outputContext} />
           </div>
         </div>
+        {/* Resizer for chatbot */}
+        {showChatbot && (
+          <div
+            className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              const startX = e.clientX
+              const startWidth = chatbotWidth
+
+              const handleMouseMove = (e: MouseEvent) => {
+                const delta = startX - e.clientX
+                const newWidth = Math.max(300, Math.min(800, startWidth + delta))
+                setChatbotWidth(newWidth)
+              }
+
+              const handleMouseUp = () => {
+                document.removeEventListener("mousemove", handleMouseMove)
+                document.removeEventListener("mouseup", handleMouseUp)
+              }
+
+              document.addEventListener("mousemove", handleMouseMove)
+              document.addEventListener("mouseup", handleMouseUp)
+            }}
+          />
+        )}
 
         {/* AI Chatbot Sidebar */}
         {showChatbot && (
-          <div className="w-96 border-l border-border bg-card flex flex-col">
-            <AIChatbot onClose={() => setShowChatbot(false)} />
+          <div className="border-l border-border bg-card flex flex-col" style={{ width: `${chatbotWidth}px` }}>
+            <AIChatbot onClose={() => setShowChatbot(false)} codeContext={codeContext} outputContext={outputContext} />
           </div>
         )}
       </div>

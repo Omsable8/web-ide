@@ -37,6 +37,12 @@ class AIChatbot:
         # Add system message
         self.conversation_history.append(Message("system", self.system_prompt))
     
+
+    def set_model(self, model: str):
+        """Set the AI model to use"""
+        self.model = model
+        print(f"[AI] Model changed to: {model}")
+        
     def add_message(self, role: str, content: str):
         """Add a message to conversation history"""
         self.conversation_history.append(Message(role, content))

@@ -4,7 +4,7 @@ import { TerminalIcon, X, Maximize2, Wifi, WifiOff, Plug, Plug2 as PlugX } from 
 import { Button } from "@/components/ui/button"
 import { connectSSH, disconnectSSH, checkSSHStatus } from "@/lib/api"
 
-export function Terminal() {
+export function Terminal({ outputContext }: { outputContext?: string }) {
   const [output, setOutput] = useState<string[]>([
     "$ Welcome to CodeIDE Terminal",
     "$ Click 'Connect' to establish SSH connection",
@@ -14,6 +14,20 @@ export function Terminal() {
   const [isConnecting, setIsConnecting] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
 
+
+  useEffect(() => {
+    if (outputContext) {
+      setOutput((prev) => [
+        ...prev,
+        "",
+        "$ --- Code Output ---",
+        ...outputContext.split("\n"),
+        "$ --- End Output ---",
+        "",
+      ])
+    }
+  }, [outputContext])
+  
   useEffect(() => {
     const checkStatus = async () => {
       const status = await checkSSHStatus()

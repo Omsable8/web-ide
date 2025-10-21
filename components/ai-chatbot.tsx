@@ -2,15 +2,25 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { X, Send, Sparkles, Loader2 } from "lucide-react"
-import { sendChatMessage } from "@/lib/api"
+import { X, Send, Sparkles, Loader2, ChevronDown } from "lucide-react"
+import { sendChatMessage, setAIModel } from "@/lib/api"
 
 interface Message {
   role: "user" | "assistant"
   content: string
 }
 
-export function AIChatbot({ onClose }: { onClose: () => void }) {
+type ChatMode = "chat" | "explain-failure" | "analyze" | "clear"
+
+export function AIChatbot({
+  onClose,
+  codeContext,
+  outputContext,
+}: {
+  onClose: () => void
+  codeContext?: string
+  outputContext?: string
+}) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -20,6 +30,35 @@ export function AIChatbot({ onClose }: { onClose: () => void }) {
   ])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-20b:free")
+  const [chatMode, setChatMode] = useState<ChatMode>("chat")
+  const [showModeMenu, setShowModeMenu] = useState(false)
+  const [showModelMenu, setShowModelMenu] = useState(false)
+
+  const handleModelChange = async (model: string) => {
+    setSelectedModel(model)
+    setShowModelMenu(false)
+    try {
+      await setAIModel(model)
+    } catch (error) {
+      console.error("[v0] Failed to set model:", error)
+    }
+  }
+
+  const handleModeChange = (mode: ChatMode) => {
+    if (mode === "clear") {
+      setMessages([
+        {
+          role: "assistant",
+          content:
+            "Hi! I'm your AI programming assistant. I can help you debug code, understand test cases, and learn DSA concepts. What would you like to work on?",
+        },
+      ])
+    } else {
+      setChatMode(mode)
+    }
+    setShowModeMenu(false)
+  }
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
@@ -30,7 +69,11 @@ export function AIChatbot({ onClose }: { onClose: () => void }) {
     setIsLoading(true)
 
     try {
-      const response = await sendChatMessage({ message: input })
+      const response = await sendChatMessage({
+        message: input,
+        code: codeContext,
+        error: outputContext,
+      })
 
       const aiMessage: Message = {
         role: "assistant",
@@ -91,9 +134,45 @@ export function AIChatbot({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border p-4">
+      {/* Input Area */}
+      <div className="border-t border-border p-4 space-y-3">
+        {/* Context Display */}
+        {(codeContext || outputContext) && (
+          <div className="bg-muted/50 border border-border rounded p-2 text-xs text-muted-foreground">
+            <div className="font-semibold mb-1">Context:</div>
+            {codeContext && <div className="truncate">Code: {codeContext.substring(0, 50)}...</div>}
+            {outputContext && <div className="truncate">Output: {outputContext.substring(0, 50)}...</div>}
+          </div>
+        )}
+
+        {/* Input Controls */}
         <div className="flex gap-2">
+          <div className="relative">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 px-2 text-xs bg-transparent"
+              onClick={() => setShowModeMenu(!showModeMenu)}
+            >
+              {chatMode}
+              <ChevronDown className="w-3 h-3 ml-1" />
+            </Button>
+            {showModeMenu && (
+              <div className="absolute bottom-full mb-1 left-0 bg-card border border-border rounded shadow-lg z-10">
+                {(["chat", "explain-failure", "analyze", "clear"] as ChatMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => handleModeChange(mode)}
+                    className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Input field */}
           <input
             type="text"
             value={input}
@@ -103,10 +182,34 @@ export function AIChatbot({ onClose }: { onClose: () => void }) {
             className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
             disabled={isLoading}
           />
+
+          <div className="relative">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 px-2 text-xs bg-transparent"
+              onClick={() => setShowModelMenu(!showModelMenu)}
+            >
+              Model
+              <ChevronDown className="w-3 h-3 ml-1" />
+            </Button>
+            {showModelMenu && (
+              <div className="absolute bottom-full mb-1 right-0 bg-card border border-border rounded shadow-lg z-10 min-w-max">
+                <button
+                  onClick={() => handleModelChange("openai/gpt-oss-20b:free")}
+                  className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
+                >
+                  openai/gpt-oss-20b:free
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Send button */}
           <Button
             size="sm"
             onClick={handleSend}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-9"
             disabled={isLoading}
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

@@ -104,6 +104,25 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
   }
 }
 
+export async function setAIModel(model: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ai/set-model`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Set model error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
 // Analyze code for issues
 export async function analyzeCode(code: string, language: string) {
   try {
