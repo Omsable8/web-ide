@@ -199,7 +199,20 @@ export function AIChatbot({
                   onClick={() => handleModelChange("openai/gpt-oss-20b:free")}
                   className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
                 >
-                  openai/gpt-oss-20b:free
+                  openai/gpt-oss
+                </button>
+                <button
+                  onClick={() => handleModelChange("google/gemma-2-9b-it:free")}
+                  className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
+                  >
+                  google/gemma-2
+                  
+                </button>
+                <button
+                  onClick={() => handleModelChange("google/gemini-2.0-flash-exp:free")}
+                  className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
+                  >
+                  google/gemini-2.0-flash-exp
                 </button>
               </div>
             )}
