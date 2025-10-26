@@ -2,6 +2,8 @@ import os
 from typing import List, Dict, Optional
 import json
 import requests
+import re
+import markdown
 class Message:
     """Represents a chat message"""
     def __init__(self, role: str, content: str):
@@ -20,12 +22,12 @@ class AIChatbot:
         self.conversation_history: List[Message] = []
         self.system_prompt = """You are an expert competitive programming tutor and DSA mentor. 
                                 Your role is to help students learn by:
-                                1. Guiding them through debugging without giving away complete solutions
+                                1. Guiding them through debugging without giving away complete solutions or entire code snippets
                                 2. Explaining error messages and their root causes in detail
                                 3. Teaching language nuances and best practices
                                 4. Helping them understand why test cases fail and how to fix them
                                 5. Encouraging problem-solving skills rather than memorization
-
+                                6. Give short answers - not too long or verbose
                                 When a student has an error:
                                 - Explain what the error means in simple terms
                                 - Point out the specific line or concept causing the issue
@@ -47,6 +49,35 @@ class AIChatbot:
         """Add a message to conversation history"""
         self.conversation_history.append(Message(role, content))
     
+    def preprocess_markdown(self,text: str) -> str:
+        """
+        Cleans up AI output for Markdown rendering.
+        - Normalizes line breaks
+        - Wraps code snippets properly
+        - Adds spacing for headings/lists
+        """
+        if not text:
+            return ""
+
+        # Normalize line endings
+        text = text.replace('\r\n', '\n').strip()
+
+        # Ensure code blocks are fenced properly
+        text = re.sub(r'```(\s*\n)?', '```\n', text)
+
+        # Add spacing before headers if missing
+        text = re.sub(r'(?<!\n)#', '\n#', text)
+
+        # Add newlines around lists and code blocks for better rendering
+        text = re.sub(r'(\n\s*[-*]\s)', r'\n\1', text)
+        text = re.sub(r'(```[\s\S]*?```)', r'\n\1\n', text)
+
+        # Optionally convert to HTML-safe markdown (if you want to send HTML)
+        # html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
+        # return html
+
+        return text
+
     def get_response(self, user_message: str, code_context: Optional[str] = None, error_context: Optional[str] = None) -> str:
         """Get AI response from OpenRouter"""
         enhanced_message = user_message
@@ -61,6 +92,8 @@ class AIChatbot:
             # Prepare messages for API call
             messages = [msg.to_dict() for msg in self.conversation_history]
             response_text = self._openrouter_request(messages)
+            response_text = self.preprocess_markdown(response_text)
+            
             self.add_message("assistant", response_text)
             return response_text
         except Exception as e:
@@ -86,55 +119,6 @@ class AIChatbot:
         else:
             raise Exception(f"OpenRouter API Error: {response.text}")
     
-    # HAVE TO REPACE WITH REAL AI
-    def analyze_code(self, code: str, language: str) -> Dict:
-        """Analyze code for potential issues and improvements"""
-        analysis = {
-            "potential_issues": [],
-            "suggestions": [],
-            "complexity_hints": []
-        }
-        
-        # Basic static analysis (can be enhanced)
-        if language.lower() == "python":
-            if "while True:" in code and "break" not in code:
-                analysis["potential_issues"].append("Infinite loop detected - missing break statement")
-            if "input()" in code:
-                analysis["suggestions"].append("Remember to handle input parsing and edge cases")
-        
-        elif language.lower() == "cpp":
-            if "#include" not in code:
-                analysis["potential_issues"].append("Missing include statements")
-            if "int main" not in code:
-                analysis["potential_issues"].append("Missing main function")
-        
-        elif language.lower() == "java":
-            if "public static void main" not in code:
-                analysis["potential_issues"].append("Missing main method")
-        
-        return analysis
-    
-    def explain_test_case_failure(self, expected: str, actual: str, test_input: str) -> str:
-        """Explain why a test case failed"""
-        return f"""**Test Case Analysis:**
-
-                **Input:** {test_input}
-                **Expected Output:** {expected}
-                **Your Output:** {actual}
-
-                **What's Different:**
-                Let's compare the outputs carefully. Look for:
-                - Extra or missing spaces
-                - Incorrect values or calculations
-                - Off-by-one errors
-                - Edge case handling
-
-                **Debugging Approach:**
-                1. Trace through your code with this specific input
-                2. Print intermediate values to see where it diverges
-                3. Check your logic for this particular case
-
-                Can you identify where your logic might be producing the wrong result?"""
     
     def get_conversation_history(self) -> List[Dict]:
         """Get conversation history as list of dicts"""
