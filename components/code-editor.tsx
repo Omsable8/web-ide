@@ -19,13 +19,55 @@ int main() {
     return 0;
 }`,
   python: `# Sample Python code for competitive programming
-def solve():
-    
-    # Your solution here
-    print("Hello from Python!")
+def binary_search(arr, target):
 
-if __name__ == "__main__":
-    solve()`,
+    low = 0
+    high = len(arr) - 1
+
+    while low <= high:
+        mid = (low + high) // 2
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            low = mid + 1
+        else:
+            high = mid - 2 
+            
+    return -1
+
+def run_test(name, arr, target, expected):
+    """Runs a single test case and prints the result."""
+    result = binary_search(arr, target)
+    is_passing = (result == expected)
+    
+    status = "✅ PASS" if is_passing else "❌ FAIL"
+    
+    print(f"[{status}] {name}: Array={arr}, Target={target}, Expected={expected}, Actual={result}")
+    return is_passing
+
+
+# --- Test Cases ---
+tests = [
+    ("Test 1:", [10, 20, 30, 40, 50], 30, 2), 
+    
+
+    ("Test 2:", [10, 20, 30, 40, 50], 50, 4),
+    
+
+    ("Test 3:", [10, 20, 30], 40, -1),
+    
+
+    ("Test 4:", [10, 20, 30, 40, 50], 20, 1),
+    
+
+    ("Test 5:", [10, 20, 30], 10, 0),
+]
+
+for name, arr, target, expected in tests:
+    run_test(name, arr, target, expected)
+
+`,
+
   java: `import java.util.*;
 
 public class Main {
@@ -173,12 +215,12 @@ export function CodeEditor({ onCodeExecuted }: { onCodeExecuted?: (output: strin
       </div>
 
       {/* Execution Output Display */}
-      {executionOutput && (
+      {/* {executionOutput && (
         <div className="border-t border-border bg-muted p-3">
           <div className="text-xs font-semibold text-foreground mb-1">Output:</div>
           <pre className="text-xs text-foreground font-mono whitespace-pre-wrap">{executionOutput}</pre>
         </div>
-      )}
+      )} */}
 
       {/* Status Bar */}
       <div className="h-6 border-t border-border bg-card flex items-center justify-between px-4 text-xs text-muted-foreground">

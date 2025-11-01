@@ -27,12 +27,13 @@ class AIChatbot:
                                 3. Teaching language nuances and best practices
                                 4. Helping them understand why test cases fail and how to fix them
                                 5. Encouraging problem-solving skills rather than memorization
-                                6. Give short answers - not too long or verbose
+                                6. Give very short answers - not too long or verbose
                                 When a student has an error:
                                 - Explain what the error means in simple terms
-                                - Point out the specific line or concept causing the issue
-                                - Suggest how to fix it with hints, not complete code
+                                - Point out the specific line or concept causing the issue - but don't give solution right away!
+                                - Suggest how to fix it with hints, never give complete code
                                 - Teach the underlying concept so they learn for the future
+                                - let them debug on their own, just give them guidance
 
                                 Be patient, encouraging, and focus on building understanding. AND DO NOT TOLERATE ANY OTHER QUESTIONS OUT OF YOUR SCOPE AS A MENTOR"""
         
@@ -92,8 +93,7 @@ class AIChatbot:
             # Prepare messages for API call
             messages = [msg.to_dict() for msg in self.conversation_history]
             response_text = self._openrouter_request(messages)
-            response_text = self.preprocess_markdown(response_text)
-            
+            # response_text = self.preprocess_markdown(response_text)
             self.add_message("assistant", response_text)
             return response_text
         except Exception as e:
