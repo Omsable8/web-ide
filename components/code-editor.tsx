@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Play, Save, Download, Loader2 } from "lucide-react"
@@ -8,16 +8,84 @@ import { executeCode } from "@/lib/api"
 
 const SAMPLE_CODE = {
   cpp: `#include <iostream>
-#include <vector>
-using namespace std;
+
+// Structure for a tree node
+struct Node {
+    int data;
+    Node* left;
+    Node* right;
+
+    Node(int val) : data(val), left(nullptr), right(nullptr) {}
+};
+
+Node* insert(Node* root, int data) {
+    if (root == nullptr) {
+        return new Node(data);
+    }
+    if (data < root->data) {
+        root->left = insert(root->left, data);
+    } else if (data > root->data) {
+        root->right = insert(root->right, data);
+    }
+    return root;
+}
+
+Node* search(Node* node, int key) {
+
+    if (key == node->data) {
+        return node;
+    }
+
+    if (node == nullptr) { 
+        return nullptr;
+    }
+
+    if (key < node->data) {
+        return search(node->left, key);
+    } else {
+        return search(node->right, key);
+    }
+}
+
+void run_test(const std::string& name, Node* root, int target) {
+    std::cout << name << ": Searching for " << target << "..." << std::endl;
+    Node* result = search(root, target);
+
+    if (result != nullptr) {
+        std::cout << "  ✅ PASS: Element found at address " << result << std::endl;
+    } else {
+        std::cout << "  ✅ PASS: Element not found (Correctly returned nullptr)" << std::endl;
+    }
+}
+
+// Cleanup function to avoid memory leaks
+void delete_tree(Node* node) {
+    if (node != nullptr) {
+        delete_tree(node->left);
+        delete_tree(node->right);
+        delete node;
+    }
+}
 
 int main() {
-    // Sample C++ code for competitive programming
-    // Your solution here
-    cout << "Hello from C++!" << endl;
+    Node* root = nullptr;
+    root = insert(root, 10);
+    insert(root, 5);
+    insert(root, 15);
+    insert(root, 2);
+    insert(root, 7);
     
+    // --- Test Cases ---
+
+    run_test("Test 1", root, 10);
+
+    run_test("Test 2", root, 6);
+
+    delete_tree(root);
+
     return 0;
-}`,
+}
+`,
   python: `# Sample Python code for competitive programming
 def binary_search(arr, target):
 
@@ -73,10 +141,20 @@ for name, arr, target, expected in tests:
 public class Main {
     public static void main(String[] args) {
         // Sample Java code for competitive programming
+        Scanner sc = new Scanner(System.in);
+        
+        System.out.print("Enter number of elements: ");
+        int n = sc.nextInt();
+        
+        int[] arr = new int[n];
+        for(int i = 0; i < n; i++) {
+            arr[i] = sc.nextInt();
+        }
         
         // Your solution here
         System.out.println("Hello from Java!");
         
+        sc.close();
     }
 }`,
 }
@@ -87,21 +165,116 @@ export function CodeEditor({ onCodeExecuted }: { onCodeExecuted?: (output: strin
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const [isExecuting, setIsExecuting] = useState(false)
   const [executionOutput, setExecutionOutput] = useState<string>("")
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editorContainerRef = useRef<HTMLDivElement>(null)
+  const editorInstanceRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !editorContainerRef.current) return
+
+    const initMonaco = async () => {
+      try {
+        // Load Monaco from jsDelivr
+        const monacoScript = document.createElement("script")
+        monacoScript.src = "https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs/loader.min.js"
+        monacoScript.async = true
+
+        monacoScript.onload = () => {
+          const require = (window as any).require
+          require.config({
+            paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs" },
+          })
+
+          require(["vs/editor/editor.main"], () => {
+            if (!editorContainerRef.current || editorInstanceRef.current) return
+
+            console.log("[v0] Initializing Monaco Editor")
+
+            const monaco = (window as any).monaco
+
+            // Define custom theme
+            monaco.editor.defineTheme("custom-dark", {
+              base: "vs-dark",
+              inherit: true,
+              rules: [
+                { token: "comment", foreground: "8b6f47" },
+                { token: "string", foreground: "a3d5a3" },
+              ],
+              colors: {
+                "editor.background": "#1a0f0f",
+                "editor.foreground": "#f5daa7",
+                "editor.lineNumbersBackground": "#3a2020",
+                "editor.lineNumbersForeground": "#8b6f47",
+                "editorCursor.foreground": "#f5daa7",
+                "editor.selectionBackground": "#a3485a80",
+                "editor.lineHighlightBackground": "#2a151515",
+              },
+            })
+
+            // Create editor instance
+            const editor = monaco.editor.create(editorContainerRef.current, {
+              value: SAMPLE_CODE.cpp,
+              language: "cpp",
+              theme: "custom-dark",
+              fontSize: 14,
+              fontFamily: '"Geist Mono", Monaco, Menlo, "Courier New", monospace',
+              lineHeight: 24,
+              tabSize: 4,
+              insertSpaces: true,
+              automaticLayout: true,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              lineNumbers: "on",
+              folding: true,
+              bracketPairColorization: { enabled: true },
+              wordWrap: "off",
+              padding: { top: 10, bottom: 10 },
+            })
+
+            editorInstanceRef.current = editor
+
+            // Listeners
+            editor.onDidChangeModelContent(() => {
+              setCode(editor.getValue())
+            })
+
+            editor.onDidChangeCursorPosition((e: any) => {
+              setCursorPosition({ line: e.position.lineNumber, column: e.position.column })
+            })
+
+            editor.focus()
+            console.log("[v0] Monaco Editor initialized successfully")
+          })
+        }
+
+        document.head.appendChild(monacoScript)
+      } catch (error) {
+        console.error("[v0] Failed to initialize Monaco:", error)
+      }
+    }
+
+    initMonaco()
+
+    return () => {
+      if (editorInstanceRef.current) {
+        editorInstanceRef.current.dispose()
+      }
+    }
+  }, [])
 
   const handleLanguageChange = (newLang: "cpp" | "python" | "java") => {
     setLanguage(newLang)
-    setCode(SAMPLE_CODE[newLang])
-  }
+    const newCode = SAMPLE_CODE[newLang]
+    setCode(newCode)
 
-  const updateCursorPosition = () => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current
-      const text = textarea.value.substring(0, textarea.selectionStart)
-      const lines = text.split("\n")
-      const line = lines.length
-      const column = lines[lines.length - 1].length + 1
-      setCursorPosition({ line, column })
+    if (editorInstanceRef.current) {
+      const monaco = (window as any).monaco
+      const model = editorInstanceRef.current.getModel()
+
+      monaco.editor.setModelLanguage(model, newLang)
+      editorInstanceRef.current.setValue(newCode)
+      editorInstanceRef.current.focus()
+
+      console.log("[v0] Language changed to " + newLang)
     }
   }
 
@@ -116,18 +289,16 @@ export function CodeEditor({ onCodeExecuted }: { onCodeExecuted?: (output: strin
       })
 
       if (result.success) {
-        // setExecutionOutput(result.output || "Code executed successfully")
         const output = result.output || "Code executed successfully"
         setExecutionOutput(output)
         onCodeExecuted?.(output, code)
       } else {
-        // setExecutionOutput(`Error: ${result.error || "Unknown error"}`)
         const errorMsg = `Error: ${result.error || "Unknown error"}`
         setExecutionOutput(errorMsg)
         onCodeExecuted?.(errorMsg, code)
       }
     } catch (error) {
-      console.error("[v0] Execution error:", error)
+      console.error("Execution error:", error)
       const errorMsg = "Error: Failed to execute code. Make sure Flask backend is running on http://localhost:5000"
       setExecutionOutput(errorMsg)
       onCodeExecuted?.(errorMsg, code)
@@ -197,27 +368,20 @@ export function CodeEditor({ onCodeExecuted }: { onCodeExecuted?: (output: strin
         </div>
       </div>
 
-      {/* Editor Area */}
-      <div className="flex-1 overflow-auto p-4">
-        <textarea
-          ref={textareaRef}
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          onKeyUp={updateCursorPosition}
-          onClick={updateCursorPosition}
-          className="w-full h-full bg-transparent text-foreground font-mono text-sm resize-none outline-none leading-relaxed"
-          spellCheck={false}
-          style={{
-            tabSize: 4,
-            caretColor: "#f5daa7",
-          }}
-        />
-      </div>
+      {/* Editor Container */}
+      <div
+        ref={editorContainerRef}
+        className="flex-1 overflow-hidden"
+        style={{
+          width: "100%",
+          height: "100%",
+        }}
+      />
 
       {/* Execution Output Display */}
       {/* {executionOutput && (
-        <div className="border-t border-border bg-muted p-3">
-          <div className="text-xs font-semibold text-foreground mb-1">Output:</div>
+        <div className="border-t border-border bg-muted p-3 max-h-32 overflow-y-auto">
+          <div className="text-xs font-semibold text-foreground mb-1">--- Code Output ---</div>
           <pre className="text-xs text-foreground font-mono whitespace-pre-wrap">{executionOutput}</pre>
         </div>
       )} */}

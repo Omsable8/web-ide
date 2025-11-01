@@ -1,0 +1,21 @@
+Hi my name is om sable, am in my 4th year of computer engn. at nmims navi mumbai.
+
+*A little about myself* - i love solving leetcode/coding questions for fun, 
+i love the feeling of solving a bug after looking at it for 2 days, 
+apart from technical stuff - i love bike riding and i have recently started learning the flute which is very fun.
+
+**PPT flow**:
+
+*shortcut & custom test case* - current challenges in ide = most ides lack the familiartity of local ides 
+that users use regularly for development and coding practice.
+this lack leads to them shifting to their ides that have - personalised shortcuts, intellisense, autocomplete, custom test case running,
+ extentions such as coding assistants (copilot) that help them code.
+
+ *AI* - Majority of the time should be spent on understanding the problem and building a logic for it - 
+ INSTEAD of typing the code, searching for correct syntax (for loops, taking input/output in specified format, etc)
+ if user knows to solve the binary search problem by iterating in a specified format but doesnt 
+ know the syntax should also be able to write the code with ai assistance. Rather he/she spends time searching for correct syntax, functions, other language nuances.
+
+ *custom test cases* - Then error traces are also very vague (like segmentation fault or stack overflow) in web ides, leading to more time consumption.
+
+ - quick typing, 
