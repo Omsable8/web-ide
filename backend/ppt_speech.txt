@@ -5,6 +5,10 @@ i love the feeling of solving a bug after looking at it for 2 days,
 apart from technical stuff - i love bike riding and i have recently started learning the flute which is very fun.
 
 **PPT flow**:
+MAJOR problem is context switching!
+ANOTHER major problem is error debugging 
+ANOTHER one is understanding the problem and dry running
+why?
 
 *shortcut & custom test case* - current challenges in ide = most ides lack the familiartity of local ides 
 that users use regularly for development and coding practice.
@@ -16,6 +20,11 @@ this lack leads to them shifting to their ides that have - personalised shortcut
  if user knows to solve the binary search problem by iterating in a specified format but doesnt 
  know the syntax should also be able to write the code with ai assistance. Rather he/she spends time searching for correct syntax, functions, other language nuances.
 
- *custom test cases* - Then error traces are also very vague (like segmentation fault or stack overflow) in web ides, leading to more time consumption.
+ *debugging* - Then error traces are also very vague (like segmentation fault or stack overflow) in web ides, 
+ leading to more time consumption.
 
- - quick typing, 
+ *Code visualisation: code visualisers help users to visualise the objects,function calls, and how variables change at each step in an algo
+ it reduces the time to write print statements to debug each line, and also saves mental load of user to dry run the code with pen and paper.
+
+ in summary - quick typing, better error understanding and more focus on problems will lead to faster learning AND 
+ better memory retention of the solution.

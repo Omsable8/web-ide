@@ -1,0 +1,34 @@
+overall suggestions:
+- Can do word cloud of all textual data
+- can put more weightage to high ranking/experienced coders. improving credibility 
+
+
+8. config issues in cp ides - categories
+
+ - editor settings
+ - language setting
+ - pasting templates
+ - handling I/O
+ - configure compiler version/libraries
+ - importing libraries
+ - internet issues
+ - should show all failed test cases at once (error debugging)
+ - file input limit
+ - file submission issue
+
+ - many complaints of codeforces for now having editor and testcases tab (poor editor)
+
+ - lack of keyboard shortcuts (VIM)
+ - No VS Code features - lack of code-completion/intellisense/suggestions
+ - migration to local IDE takes time
+
+ - dependency management
+
+11. Give an example of when an unclear error message affected your contest performance.
+
+ - Runtime error
+ - SIGSEGV
+ - poor error explaination
+ - importing libs
+ - Not UX friendly
+ - 
