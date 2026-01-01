@@ -21,6 +21,7 @@ overall suggestions:
  - lack of keyboard shortcuts (VIM)
  - No VS Code features - lack of code-completion/intellisense/suggestions
  - migration to local IDE takes time
+ - pasting test cases
 
  - dependency management
 
@@ -31,4 +32,79 @@ overall suggestions:
  - poor error explaination
  - importing libs
  - Not UX friendly
- - 
+ - input format
+
+13. What debugging-related challenges do you face most often during contests?
+ 
+ - logical errors
+ - tracing root cause
+ - Hidden testcases
+ - error not shown
+ - SIGSEGV
+ - edge testcases 
+ - No proper documentation
+ - poor editor
+ - wrong variable names
+ - different cpp versions
+ - no autocomplete
+
+20. In what ways could AICAs help you during contests?
+
+ - code logic
+ - debugging
+ - correct data structure and predefined functions
+ - better suggestions
+ - saves time
+ - testcases
+ - code completion
+ - code boilerplate
+ - hints
+ - error explaination
+ - suggest algorithms 
+ - post contest learning
+ 
+ - no AI
+ - no AICA
+
+
+23. How do you usually deal with or work around the challenges you face while using CP IDEs during contests?
+
+ - AI
+ - telegram
+ - local IDE
+ - websurf
+ - leave question
+ - stackoverflow
+ - manual debug
+ - forums
+ - editorial
+ - friend
+ - restart
+ - templates (to save time)
+
+
+25. If you could add one feature (with or without AI) to improve CP IDEs, what would it be?
+
+ - Smart Test Case Generator
+ - Failure Explainer
+ - visualise solution
+ - visualise code
+ - autocomplete 
+ - hints
+ - debugger
+ - highlight error
+ - I/O formatting
+ - suggestions
+ - predict complexity
+ - better question description
+ - better input format
+ - AI
+ - no AI
+ - terminal
+ - more testcases
+ - simple UI (IO, editor, submit button, no drag/drop etc)
+ - vim, shortcuts
+ - code optimizer
+ - interactive IDE
+ - language translation
+ - nothing
