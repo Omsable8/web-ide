@@ -27,84 +27,159 @@ overall suggestions:
 
 11. Give an example of when an unclear error message affected your contest performance.
 
- - Runtime error
- - SIGSEGV
- - poor error explaination
- - importing libs
- - Not UX friendly
- - input format
+    'nan', 
+
+    BAD ERROR TRACE
+        'poor error explaination', 
+        'runtime error', 
+        'error not shown',
+        'confused mle for runtime error', 
+        'variable out of scope', 
+
+    INTERACTIVE PROBLEMS:
+        'interactive problems', 
+        'idleness error', 
+
+    CPP:
+        'sigsegv', 
+        'cpp', 
+
+    NO TEMPLATES:
+        'importing libs', 
+        'input format', 
+
+    'not ux friendly', 
+    'correct code wrong answer', 
+    'in queue'
+
 
 13. What debugging-related challenges do you face most often during contests?
  
- - logical errors
- - tracing root cause
- - Hidden testcases
- - error not shown
- - SIGSEGV
- - edge testcases 
- - No proper documentation
- - poor editor
- - wrong variable names
- - different cpp versions
- - no autocomplete
+
+ (24) {
+    'nan',
+
+    'premium version', 
+    
+    DEBUGGING:
+        'logical errors', 
+        'poor error explaination',  
+        'tracing root cause',
+        'no debugger', 
+        'some issues during debugging', 
+        'sigsegv', 
+        'error not shown', 
+        'wrong variable names', 
+        'data type error', 
+        'mixing loops', 
+    
+    POOR EDITOR:
+        'handling io', 
+        'no autocomplete', 
+        'no proper documentation', 
+        'lacks vscode features', 
+        'poor editor', 
+        'differences cpp versions', 
+
+    TESTCASES:
+        'all test case passes in single run', 
+        'hidden testcases',     
+        'edge testcases'
+    }
+
 
 20. In what ways could AICAs help you during contests?
 
- - code logic
- - debugging
- - correct data structure and predefined functions
- - better suggestions
- - saves time
- - testcases
- - code completion
- - code boilerplate
- - hints
- - error explaination
- - suggest algorithms 
- - post contest learning
- 
- - no AI
- - no AICA
-
+(25) {
+    'nan', 
+    "real life scenario problems", 
+    'no aica', 
+    'no ai', 
+    'saves time', 
+    
+    CODE:
+        'code boilerplate', 
+        'code logic', 
+        'code completion', 
+        'correct data structure and predefined functions', 
+        'syntax analysis', 
+    
+    SUGGESTIONS:
+        'better suggestions', 
+        'shaping out ideas', 
+        'optimisation', 
+        'debugging', 
+        'clarifying problem statements', 
+        'suggest algorithms', 
+        'post-contest learning',
+        'hints', 
+        'error explaination',  
+    
+    TESTCASES:
+        'testcases', 
+        'edge cases'
+    }
 
 23. How do you usually deal with or work around the challenges you face while using CP IDEs during contests?
 
- - AI
- - telegram
- - local IDE
- - websurf
- - leave question
- - stackoverflow
- - manual debug
- - forums
- - editorial
- - friend
- - restart
- - templates (to save time)
-
+(19) {
+    'nan',
+    EXTERNAL HELP:
+        'ai',
+        'telegram',
+        'websurf',
+        'stackoverflow',
+        'friend',
+        'editorial',
+        'forums',
+    MANUAL:
+        'local ide',
+        'manual debug',
+        'restart',
+        'templates'
+        'leave question',
+        'no ai',
+    'lack of ui',
+    'most of time they take more time to run code due to network',
+    'manage time',
+ }
 
 25. If you could add one feature (with or without AI) to improve CP IDEs, what would it be?
 
- - Smart Test Case Generator
- - Failure Explainer
- - visualise solution
- - visualise code
- - autocomplete 
- - hints
- - debugger
- - highlight error
- - I/O formatting
- - suggestions
- - predict complexity
- - better question description
- - better input format
- - AI
- - no AI
- - terminal
- - more testcases
- - simple UI (IO, editor, submit button, no drag/drop etc)
- - vim, shortcuts
- - code optimizer
- - interactive IDE
- - language translation
- - nothing
+(24) {
+'nan'
+
+TESTCASES:
+    'smart testcase generator'
+    'better test codeforces'
+
+OPTIMIZER:
+    'code optimizer'
+
+ASSISTANCE:
+    'hints'
+    'ai'
+    'guide from wrong to right solution'
+    'better question description'
+    'predict complexities'
+    'failure explainer'
+    'i/o formatting'
+    'generate more problems'
+
+'no ai'
+
+BETTER EDITOR:
+    'android based'
+    'debugger'
+    'autocomplete'
+    'terminal'
+    'shortcuts'
+    'language translation'
+    'interactive ide'
+    'simple ui'
+
+VISUALISE:
+    'visualise solution'
+    'highlight error'
+    'visualise code'
+}
