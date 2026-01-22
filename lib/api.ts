@@ -1,0 +1,288 @@
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+
+export interface ExecuteCodeRequest {
+  code: string
+  language: string
+}
+
+export interface ExecuteCodeResponse {
+  success: boolean
+  output?: string
+  error?: string
+  exit_code?: number
+}
+
+export interface ChatRequest {
+  message: string
+  code?: string
+  error?: string
+}
+
+export interface ChatResponse {
+  success: boolean
+  response: string
+  history?: Array<{ role: string; content: string }>
+}
+
+// SSH Connection Management
+export async function connectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ssh/connect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] SSH connect error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function disconnectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ssh/disconnect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] SSH disconnect error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function checkSSHStatus(): Promise<{ connected: boolean; hostname?: string; username?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ssh/status`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] SSH status error:", error)
+    return { connected: false }
+  }
+}
+
+// Execute code on remote server
+export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteCodeResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/code/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Execute code error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+// Send message to AI chatbot
+export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Chat error:", error)
+    return { success: false, response: String(error) }
+  }
+}
+
+export async function setAIModel(model: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ai/set-model`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Set model error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+// Analyze code for issues
+export async function analyzeCode(code: string, language: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ai/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, language }),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Analyze code error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+// Explain test case failure
+export async function explainTestFailure(expected: string, actual: string, input: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ai/explain-failure`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expected, actual, input }),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Explain failure error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+// Clear chat history
+export async function clearChatHistory() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ai/clear`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Clear chat error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+// ============================================================================
+// DSA Problems Endpoints
+// ============================================================================
+
+export interface Problem {
+  id: string
+  title: string
+  description: string
+  difficulty: 'Easy' | 'Medium' | 'Hard'
+  category: string
+  examples: string
+  constraints: string
+  created_at: string
+}
+
+export interface TestCase {
+  id: string
+  problem_id: string
+  input: string
+  expected_output: string
+  is_example: boolean
+  created_at: string
+}
+
+export interface Hint {
+  id: string
+  problem_id: string
+  level: number
+  content: string
+  created_at: string
+}
+
+export async function getProblems(filters?: { difficulty?: string; category?: string }) {
+  try {
+    const params = new URLSearchParams()
+    if (filters?.difficulty) params.append('difficulty', filters.difficulty)
+    if (filters?.category) params.append('category', filters.category)
+    
+    const response = await fetch(`${API_BASE_URL}/api/problems${params.toString() ? `?${params}` : ''}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Get problems error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function getProblem(problemId: string): Promise<{ success: boolean; problem?: Problem; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Get problem error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function getTestCases(problemId: string): Promise<{ success: boolean; test_cases?: TestCase[]; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/test-cases`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Get test cases error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function getHints(problemId: string, level: number): Promise<{ success: boolean; hints?: Hint[]; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/hints/${level}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Get hints error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function runTests(
+  problemId: string,
+  code: string,
+  language: string
+): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: any[]; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/run-tests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, language }),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Run tests error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function analyzeComplexity(code: string, language: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/code/complexity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, language }),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("[v0] Analyze complexity error:", error)
+    return { success: false, error: String(error) }
+  }
+}
