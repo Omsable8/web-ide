@@ -3,6 +3,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 export interface ExecuteCodeRequest {
   code: string
   language: string
+  input?: string
 }
 
 export interface ExecuteCodeResponse {
@@ -24,6 +25,120 @@ export interface ChatResponse {
   history?: Array<{ role: string; content: string }>
 }
 
+
+// ============================================================================
+// Code Templates
+// ============================================================================
+
+export interface CodeTemplate {
+  id: string
+  problem_id: string
+  language: string
+  template_code: string
+  function_name: string
+  input_params: Array<{
+    name: string
+    type: string
+  }>
+  return_type: string
+}
+
+export interface InputParam {
+  name: string
+  type: string
+  value?: any
+}
+
+export interface TestCase {
+  id: string
+  problem_id: string
+  input_params: InputParam[]
+  expected_output: string
+  is_hidden: boolean
+  explanation?: string
+  created_at: string
+  is_example?: boolean
+}
+
+export interface CustomTestCase {
+  input_params: InputParam[]
+  expected_output: string
+}
+
+export interface TestResult {
+  test_id: string
+  input_params: InputParam[]
+  expected: string
+  actual: string
+  passed: boolean
+  error?: string
+  is_hidden: boolean
+}
+
+export async function getTemplate(
+  problemId: string,
+  language: string
+): Promise<{ success: boolean; template?: CodeTemplate; error?: string }> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/problems/${problemId}/template?language=${language}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }
+    )
+    return await response.json()
+  } catch (error) {
+    console.error("[API] Get template error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function getTestCases(
+  problemId: string
+): Promise<{ success: boolean; test_cases?: TestCase[]; error?: string }> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/problems/${problemId}/test-cases`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }
+    )
+    return await response.json()
+  } catch (error) {
+    console.error("[API] Get test cases error:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export interface RunTestsRequest {
+  code: string
+  language: string
+  custom_tests?: CustomTestCase[]
+}
+
+export async function runTests(
+  problemId: string,
+  request: RunTestsRequest
+): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/run-tests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}` }
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("[API] Run tests error:", error)
+    return { success: false, error: String(error) }
+  }
+}
 // SSH Connection Management
 export async function connectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
@@ -187,7 +302,7 @@ export interface TestCase {
   problem_id: string
   input: string
   expected_output: string
-  is_example: boolean
+  is_example?: boolean
   created_at: string
 }
 
@@ -229,18 +344,6 @@ export async function getProblem(problemId: string): Promise<{ success: boolean;
   }
 }
 
-export async function getTestCases(problemId: string): Promise<{ success: boolean; test_cases?: TestCase[]; error?: string }> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/test-cases`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    })
-    return await response.json()
-  } catch (error) {
-    console.error("[v0] Get test cases error:", error)
-    return { success: false, error: String(error) }
-  }
-}
 
 export async function getHints(problemId: string, level: number): Promise<{ success: boolean; hints?: Hint[]; error?: string }> {
   try {
@@ -251,24 +354,6 @@ export async function getHints(problemId: string, level: number): Promise<{ succ
     return await response.json()
   } catch (error) {
     console.error("[v0] Get hints error:", error)
-    return { success: false, error: String(error) }
-  }
-}
-
-export async function runTests(
-  problemId: string,
-  code: string,
-  language: string
-): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: any[]; error?: string }> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/run-tests`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, language }),
-    })
-    return await response.json()
-  } catch (error) {
-    console.error("[v0] Run tests error:", error)
     return { success: false, error: String(error) }
   }
 }

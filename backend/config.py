@@ -13,12 +13,6 @@ class Config:
     HOST = os.getenv('HOST', '0.0.0.0')
     PORT = int(os.getenv('PORT', 5000))
     
-    # SSH settings
-    SSH_HOSTNAME = os.getenv('SSH_HOSTNAME', '192.168.0.104')
-    SSH_USERNAME = os.getenv('SSH_USERNAME', 'thunder')
-    SSH_PASSWORD = os.getenv('SSH_PASSWORD', '')  # Set via environment variable
-    SSH_PORT = int(os.getenv('SSH_PORT', 22))
-    
     # AI settings
     AI_MODEL = os.getenv('AI_MODEL', 'gpt-4')
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
@@ -29,7 +23,6 @@ class Config:
     @staticmethod
     def validate():
         """Validate required configuration"""
-        if not Config.SSH_PASSWORD:
-            print("WARNING: SSH_PASSWORD not set in environment variables")
         if not Config.OPENAI_API_KEY:
             print("WARNING: OPENAI_API_KEY not set in environment variables")
+        print("[INFO] Configuration loaded successfully")

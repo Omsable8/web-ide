@@ -349,6 +349,7 @@ curl -X POST http://localhost:5000/api/code/complexity \
 1. Add more DSA problems to the database
 2. Implement user authentication
 3. Add solution comparison
+OPTIONAL:
 4. Create problem recommendations
 5. Build leaderboards for competitive section
 

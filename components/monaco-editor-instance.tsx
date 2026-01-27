@@ -62,7 +62,8 @@ export function MonacoEditorInstance({
   const [executionOutput, setExecutionOutput] = useState<string>("")
   const editorContainerRef = useRef<HTMLDivElement>(null)
   const editorInstanceRef = useRef<any>(null)
-
+  const [userInput, setUserInput] = useState("")
+  const [showInputPanel, setShowInputPanel] = useState(false)
   useEffect(() => {
     if (typeof window === "undefined" || !editorContainerRef.current) return
 
@@ -177,6 +178,7 @@ export function MonacoEditorInstance({
       const result = await executeCode({
         code,
         language,
+        input: userInput,
       })
 
       if (result.success) {
@@ -231,6 +233,23 @@ export function MonacoEditorInstance({
               </>
             )}
           </Button>
+        )}
+      </div>
+      {/* Input Panel */}
+      <div className="border-b border-border bg-muted/50 p-3">
+        <button
+          onClick={() => setShowInputPanel(!showInputPanel)}
+          className="text-xs text-muted-foreground hover:text-foreground mb-2"
+        >
+          {showInputPanel ? "▼" : "▶"} Input (Optional)
+        </button>
+        {showInputPanel && (
+          <textarea
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            placeholder="Enter input here (one per line)"
+            className="w-full h-20 p-2 bg-background text-foreground text-xs font-mono rounded border border-border"
+          />
         )}
       </div>
 

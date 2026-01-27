@@ -4,8 +4,9 @@ import sys
 import traceback
 
 from config import Config
-from ssh_manager import SSHManager
+from code_executor import CodeExecutor
 from ai_chatbot import AIChatbot
+from template_executor import TemplateExecutor
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -15,70 +16,10 @@ app.config.from_object(Config)
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
 # Global instances
-ssh_manager: SSHManager = None
 ai_chatbot = AIChatbot(model=Config.AI_MODEL, api_key=Config.OPENAI_API_KEY)
 
 # Validate configuration
 Config.validate()
-
-# ============================================================================
-# SSH Connection Management
-# ============================================================================
-
-@app.route('/api/ssh/connect', methods=['POST'])
-def connect_ssh():
-    """Connect to SSH server"""
-    global ssh_manager
-    
-    try:
-        if ssh_manager and ssh_manager.is_connected:
-            return jsonify({"success": True, "message": "Already connected"})
-        
-        ssh_manager = SSHManager(
-            hostname=Config.SSH_HOSTNAME,
-            username=Config.SSH_USERNAME,
-            password=Config.SSH_PASSWORD,
-            port=Config.SSH_PORT
-        )
-        
-        success = ssh_manager.connect()
-        
-        if success:
-            return jsonify({"success": True, "message": "Connected to server"})
-        else:
-            return jsonify({"success": False, "error": "Failed to connect"}), 500
-            
-    except Exception as e:
-        print(f"[ERROR] SSH connection failed: {str(e)}")
-        traceback.print_exc()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/ssh/disconnect', methods=['POST'])
-def disconnect_ssh():
-    """Disconnect from SSH server"""
-    global ssh_manager
-    
-    try:
-        if ssh_manager:
-            ssh_manager.disconnect()
-            ssh_manager = None
-        
-        return jsonify({"success": True, "message": "Disconnected"})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/ssh/status', methods=['GET'])
-def ssh_status():
-    """Check SSH connection status"""
-    global ssh_manager
-    
-    is_connected = ssh_manager.is_connected if ssh_manager else False
-    return jsonify({
-        "connected": is_connected,
-        "hostname": Config.SSH_HOSTNAME if is_connected else None,
-        "username": Config.SSH_USERNAME if is_connected else None
-    })
 
 # ============================================================================
 # Code Execution Endpoints
@@ -86,26 +27,55 @@ def ssh_status():
 
 @app.route('/api/code/run', methods=['POST'])
 def run_code():
-    """Execute code on the remote server and return output"""
-    global ssh_manager
+    """Execute code locally and return output"""
     
     try:
-        if not ssh_manager or not ssh_manager.is_connected:
-            return jsonify({"success": False, "error": "Not connected to server"}), 400
-        
         data = request.get_json()
         code = data.get('code', '')
         language = data.get('language', 'python')
+        input_data = data.get('input', None)
         
         if not code:
             return jsonify({"success": False, "error": "No code provided"}), 400
         
-        result = ssh_manager.run_code(code, language)
+        result = CodeExecutor.execute(code, language, input_data)
         return jsonify(result)
         
     except Exception as e:
         print(f"[ERROR] Code execution failed: {str(e)}")
         traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
+# Code Templates Endpoints
+# ============================================================================
+
+@app.route('/api/problems/<problem_id>/template', methods=['GET'])
+def get_template(problem_id):
+    """Fetch code template for a specific language"""
+    try:
+        from supabase import create_client
+        import os
+        
+        language = request.args.get('language', 'python')
+        
+        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        supabase = create_client(supabase_url, supabase_key)
+        
+        template = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
+        
+        if not template.data:
+            return jsonify({"success": False, "error": "Template not found for this language"}), 404
+        
+        return jsonify({
+            "success": True,
+            "template": template.data
+        })
+        
+    except Exception as e:
+        print(f"[ERROR] Get template failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 # ============================================================================
@@ -206,11 +176,10 @@ def clear_chat():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    ssh_connected = ssh_manager.is_connected if ssh_manager else False
     return jsonify({
         "status": "healthy",
-        "ssh_connected": ssh_connected,
-        "ai_ready": True
+        "ai_ready": True,
+        "code_execution": "local"
     })
 
 # ============================================================================
@@ -272,22 +241,6 @@ def get_problem(problem_id):
         print(f"[ERROR] Get problem failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/problems/<problem_id>/test-cases', methods=['GET'])
-def get_test_cases(problem_id):
-    """Fetch all test cases for a problem"""
-    try:
-        from supabase import create_client
-        import os
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        test_cases = supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
-        return jsonify({"success": True, "test_cases": test_cases.data})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/problems/<problem_id>/hints/<level>', methods=['GET'])
 def get_hints(problem_id, level):
@@ -306,15 +259,37 @@ def get_hints(problem_id, level):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/problems/<problem_id>/test-cases', methods=['GET'])
+def get_test_cases(problem_id):
+    """Fetch all test cases for a problem"""
+    try:
+        from supabase import create_client
+        import os
+        
+        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        supabase = create_client(supabase_url, supabase_key)
+        
+        test_cases = supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
+        
+        # Parse input_params from JSON string if needed
+        for test_case in test_cases.data:
+            if isinstance(test_case.get('input_params'), str):
+                import json
+                test_case['input_params'] = json.loads(test_case['input_params'])
+        
+        return jsonify({"success": True, "test_cases": test_cases.data})
+        
+    except Exception as e:
+        print(f"[ERROR] Get test cases failed: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/problems/<problem_id>/run-tests', methods=['POST'])
 def run_tests(problem_id):
-    """Run user code against all test cases for a problem"""
-    global ssh_manager
+    """Run user code against test cases"""
     
     try:
-        if not ssh_manager or not ssh_manager.is_connected:
-            return jsonify({"success": False, "error": "Not connected to server"}), 400
-        
         from supabase import create_client
         import os
         import json
@@ -322,34 +297,65 @@ def run_tests(problem_id):
         data = request.get_json()
         code = data.get('code', '')
         language = data.get('language', 'python')
+        custom_tests = data.get('custom_tests', [])
+        
+        if not code.strip():
+            return jsonify({"success": False, "error": "No code provided"}), 400
         
         supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
         supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
         supabase = create_client(supabase_url, supabase_key)
         
-        # Get all test cases for this problem
+        # Get template
+        template_response = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
+        
+        if not template_response.data:
+            return jsonify({"success": False, "error": f"No template found for {language}"}), 404
+        
+        template = template_response.data
+        
+        # Get test cases
         test_cases_response = supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
         test_cases = test_cases_response.data
         
         results = []
         
+        # Run each test case
         for test_case in test_cases:
-            input_data = test_case.get('input', '')
-            expected_output = test_case.get('expected_output', '')
+            input_params = test_case.get('input_params', [])
             
-            # Run the code with this test case
-            result = ssh_manager.run_code_with_input(code, language, input_data)
+            # Build execution code with input parameters
+            final_code = build_execution_code(code, language, template, input_params)
             
-            actual_output = result.get('output', '').strip()
-            expected_output = expected_output.strip()
-            passed = actual_output == expected_output
+            # Execute code
+            from code_executor import CodeExecutor
+            result = CodeExecutor.execute(final_code, language)
             
             results.append({
-                'test_case_id': test_case['id'],
-                'input': input_data,
-                'expected': expected_output,
-                'actual': actual_output,
-                'passed': passed
+                'test_id': test_case['id'],
+                'input_params': input_params,
+                'expected': test_case.get('expected_output', ''),
+                'actual': result.get('output', '').strip(),
+                'passed': result.get('output', '').strip() == test_case.get('expected_output', '').strip(),
+                'error': result.get('error'),
+                'is_hidden': test_case.get('is_hidden', False)
+            })
+        
+        # Run custom tests
+        for custom_test in custom_tests:
+            input_params = custom_test.get('input_params', [])
+            final_code = build_execution_code(code, language, template, input_params)
+            
+            result = CodeExecutor.execute(final_code, language)
+            
+            results.append({
+                'test_id': 'custom_' + str(len(results)),
+                'input_params': input_params,
+                'expected': custom_test.get('expected_output', ''),
+                'actual': result.get('output', '').strip(),
+                'passed': result.get('output', '').strip() == custom_test.get('expected_output', '').strip(),
+                'error': result.get('error'),
+                'is_hidden': False
             })
         
         passed_count = sum(1 for r in results if r['passed'])
@@ -363,8 +369,46 @@ def run_tests(problem_id):
         
     except Exception as e:
         print(f"[ERROR] Run tests failed: {str(e)}")
+        import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+def build_execution_code(user_code, language, template, input_params):
+    """Build final executable code by injecting test inputs"""
+    language = language.lower()
+    
+    if language == "python":
+        # Format input values
+        input_values = []
+        for param in input_params:
+            value = param.get('value', '')
+            param_type = param.get('type', 'string')
+            
+            if param_type == 'array':
+                items = [str(item) for item in value]
+                input_values.append('[' + ', '.join(items) + ']')
+            elif param_type == 'integer':
+                input_values.append(str(value))
+            elif param_type == 'string':
+                input_values.append(f'"{value}"')
+            else:
+                input_values.append(str(value))
+        
+        param_names = [p['name'] for p in input_params]
+        call = f"result = solve({', '.join(input_values)})\nprint(result)"
+        
+        return f"{user_code}\n\n{call}"
+    
+    elif language == "cpp":
+        # Similar logic for C++
+        return f"{user_code}\n\nint main() {{\n    // Test code\n    return 0;\n}}"
+    
+    elif language == "java":
+        # Similar logic for Java
+        return f"{user_code}\n\npublic static void main(String[] args) {{\n    // Test code\n}}"
+    
+    return user_code
 
 @app.route('/api/code/complexity', methods=['POST'])
 def analyze_complexity():
@@ -406,8 +450,8 @@ def index():
     return jsonify({
         "message": "CodeIDE Backend API",
         "version": "1.0.0",
+        "execution_model": "Local (Direct execution via subprocess)",
         "endpoints": {
-            "ssh": ["/api/ssh/connect", "/api/ssh/disconnect", "/api/ssh/status"],
             "code": ["/api/code/run", "/api/code/complexity"],
             "problems": ["/api/problems", "/api/problems/<id>", "/api/problems/<id>/test-cases", "/api/problems/<id>/hints/<level>", "/api/problems/<id>/run-tests"],
             "ai": ["/api/ai/chat", "/api/ai/set-model", "/api/ai/analyze", "/api/ai/explain-failure", "/api/ai/clear"],
@@ -433,7 +477,7 @@ def internal_error(e):
 
 if __name__ == '__main__':
     print(f"[INFO] Starting CodeIDE Backend Server")
-    print(f"[INFO] SSH Target: {Config.SSH_USERNAME}@{Config.SSH_HOSTNAME}:{Config.SSH_PORT}")
+    print(f"[INFO] Execution Model: Local (Direct subprocess execution)")
     print(f"[INFO] AI Model: {Config.AI_MODEL}")
     print(f"[INFO] Server running on {Config.HOST}:{Config.PORT}")
     
