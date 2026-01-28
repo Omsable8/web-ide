@@ -105,7 +105,23 @@ export async function getTestCases(
         headers: { "Content-Type": "application/json" },
       }
     )
-    return await response.json()
+    const data = await response.json()
+    
+    // Transform test cases to ensure input_params is an array
+    if (data.success && data.test_cases) {
+      data.test_cases = data.test_cases.map((tc: any) => ({
+        id: tc.id,
+        problem_id: tc.problem_id,
+        input_params: Array.isArray(tc.input_params) ? tc.input_params : [],
+        expected_output: tc.expected_output,
+        is_hidden: tc.is_hidden || false,
+        explanation: tc.explanation,
+        created_at: tc.created_at,
+        is_example: tc.is_example || false,
+      }))
+    }
+    
+    return data
   } catch (error) {
     console.error("[API] Get test cases error:", error)
     return { success: false, error: String(error) }
@@ -120,13 +136,14 @@ export interface RunTestsRequest {
 
 export async function runTests(
   problemId: string,
-  request: RunTestsRequest
+  code: string,
+  language: string
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; error?: string }> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/run-tests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
+      body: JSON.stringify({ code, language }),
     })
 
     if (!response.ok) {
@@ -297,14 +314,7 @@ export interface Problem {
   created_at: string
 }
 
-export interface TestCase {
-  id: string
-  problem_id: string
-  input: string
-  expected_output: string
-  is_example?: boolean
-  created_at: string
-}
+
 
 export interface Hint {
   id: string

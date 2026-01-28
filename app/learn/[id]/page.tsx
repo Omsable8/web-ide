@@ -1,30 +1,17 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Loader2, Play, Plus, Trash2, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
-import {
-  getProblem,
-  getTemplate,
-  getTestCases,
-  runTests,
-  analyzeComplexity,
-  CodeTemplate,
-  TestCase,
-  TestResult,
-  CustomTestCase,
-  InputParam,
-} from '@/lib/api'
-import { StructuredTestInput } from '@/components/StructuredTestInput'
-import { getDefaultInputFields } from '@/lib/inputParser'
+import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X } from 'lucide-react'
+import { getProblem, getTestCases, getHints, runTests, analyzeComplexity } from '@/lib/api'
 import { MonacoEditorInstance } from '@/components/monaco-editor-instance'
-// import {CodeEditor} from '@/components/code-editor'
+import { AIChatbot } from '@/components/ai-chatbot'
+import { DevPreferences } from '@/components/dev-preferences'
+import { PerformanceAnalyzer } from '@/components/performance-analyzer'
+import { StructuredTestCases } from '@/components/structured-test-cases'
+
 interface Problem {
   id: string
   title: string
@@ -37,61 +24,124 @@ interface Problem {
   space_complexity?: string
 }
 
+interface TestCase {
+  id: string
+  problem_id: string
+  input_params: Array<{ name: string; type: string; value?: any }>
+  expected_output: string
+  is_hidden: boolean
+  is_example: boolean
+  explanation?: string
+  created_at: string
+}
+
+interface Hint {
+  id: string
+  level: number
+  content: string
+}
+
+interface TestResult {
+  test_id: string
+  input_params: Array<{ name: string; type: string; value?: any }>
+  expected: string
+  actual: string
+  passed: boolean
+  error?: string
+}
+
 export default function ProblemDetailPage() {
   const params = useParams()
   const problemId = params.id as string
 
-  // Problem state
   const [problem, setProblem] = useState<Problem | null>(null)
+  const [testCases, setTestCases] = useState<TestCase[]>([])
+  const [customTestCases, setCustomTestCases] = useState<TestCase[]>([])
+  const [hints, setHints] = useState<Record<number, Hint[]>>({})
   const [loading, setLoading] = useState(true)
-
-  // Code & Template state
   const [code, setCode] = useState('')
   const [language, setLanguage] = useState('python')
-  const [template, setTemplate] = useState<CodeTemplate | null>(null)
-  const [showTemplate, setShowTemplate] = useState(true)
-
-  // Test Cases state
-  const [testCases, setTestCases] = useState<TestCase[]>([])
-  const [customTests, setCustomTests] = useState<CustomTestCase[]>([])
-  const [showCustomTestModal, setShowCustomTestModal] = useState(false)
-
-  // Test Results state
-  const [testResults, setTestResults] = useState<TestResult[]>([])
+  const [showHints, setShowHints] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false })
+  const [activeTab, setActiveTab] = useState<'description' | 'testcases'>('description')
+  const [chatbotWidth, setChatbotWidth] = useState(320)
+  const [showChatbot, setShowChatbot] = useState(true)
+  const [codeContext, setCodeContext] = useState<string>('')
+  const [outputContext, setOutputContext] = useState<string>('')
   const [running, setRunning] = useState(false)
-
-  // UI state
-  const [activeTab, setActiveTab] = useState<'description' | 'tests' | 'custom'>('description')
-  const [complexityAnalysis, setComplexityAnalysis] = useState<any>(null)
+  const [testResults, setTestResults] = useState<TestResult[]>([])
+  const [showDevPreferences, setShowDevPreferences] = useState(false)
+  const [showPerformanceAnalyzer, setShowPerformanceAnalyzer] = useState(false)
+  const [complexityAnalysis, setComplexityAnalysis] = useState<{ timeComplexity: string; spaceComplexity: string; explanation?: string } | null>(null)
   const [analyzingComplexity, setAnalyzingComplexity] = useState(false)
 
-  // Load problem and template
   useEffect(() => {
     fetchProblemData()
-  }, [problemId, language])
+  }, [problemId])
+
+  const handleRunTests = async () => {
+    if (!code.trim()) return
+    setRunning(true)
+    try {
+      const result = await runTests(problemId, code, language)
+      if (result.success && result.results) {
+        setTestResults(result.results)
+        setCodeContext(code)
+      }
+    } catch (error) {
+      console.error('Failed to run tests:', error)
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  const handleAnalyzeComplexity = async () => {
+    if (!code.trim()) return
+    setAnalyzingComplexity(true)
+    try {
+      const result = await analyzeComplexity(code, language)
+      if (result.success && result.analysis) {
+        const rawContent = typeof result.analysis === 'string' ? result.analysis : JSON.stringify(result.analysis)
+        const jsonMatch = rawContent.match(/\{[\s\S]*\}/)
+        const cleanJson = jsonMatch ? jsonMatch[0] : rawContent
+
+        const analysis = JSON.parse(cleanJson)
+
+        setComplexityAnalysis({
+          timeComplexity: analysis.time_complexity || analysis.timeComplexity || 'O(n)',
+          spaceComplexity: analysis.space_complexity || analysis.spaceComplexity || 'O(1)',
+          explanation: analysis.explanation || '',
+        })
+        setShowPerformanceAnalyzer(true)
+      }
+    } catch (error) {
+      console.error('Failed to parse complexity analysis JSON:', error)
+    } finally {
+      setAnalyzingComplexity(false)
+    }
+  }
 
   const fetchProblemData = async () => {
     setLoading(true)
     try {
-      // Fetch problem details
       const problemRes = await getProblem(problemId)
-      if (problemRes.success && problemRes.problem) {
+      if (problemRes.success) {
         setProblem(problemRes.problem)
       }
 
-      // Fetch template for selected language
-      const templateRes = await getTemplate(problemId, language)
-      if (templateRes.success && templateRes.template) {
-        setTemplate(templateRes.template)
-        setCode(templateRes.template.template_code)
-      } else {
-        console.warn('Template not found for language:', language)
-      }
-
-      // Fetch test cases
       const testCasesRes = await getTestCases(problemId)
       if (testCasesRes.success && testCasesRes.test_cases) {
         setTestCases(testCasesRes.test_cases)
+        console.log(testCasesRes.test_cases)
+      }
+
+      for (let level = 1; level <= 3; level++) {
+        const hintsRes = await getHints(problemId, level)
+        if (hintsRes.success) {
+          setHints((prev) => ({
+            ...prev,
+            [level]: hintsRes.hints || [],
+          }))
+        }
       }
     } catch (error) {
       console.error('Failed to load problem:', error)
@@ -100,81 +150,10 @@ export default function ProblemDetailPage() {
     }
   }
 
-  // Handle language change
-  const handleLanguageChange = (newLanguage: string) => {
-    setLanguage(newLanguage)
-  }
-
-  // Run all tests (predefined + custom)
-  const handleRunTests = async () => {
-    if (!code.trim()) {
-      alert('Please write some code first')
-      return
-    }
-
-    setRunning(true)
-    try {
-      const result = await runTests(problemId, {
-        code,
-        language,
-        custom_tests: customTests,
-      })
-
-      if (result.success && result.results) {
-        setTestResults(result.results)
-        setActiveTab('tests')
-      } else {
-        alert(`Error running tests: ${result.error}`)
-      }
-    } catch (error) {
-      console.error('Failed to run tests:', error)
-      alert('Failed to run tests')
-    } finally {
-      setRunning(false)
-    }
-  }
-
-  // Add custom test case
-  const handleAddCustomTest = (newTest: CustomTestCase) => {
-    setCustomTests([...customTests, newTest])
-    setShowCustomTestModal(false)
-  }
-
-  // Remove custom test case
-  const handleRemoveCustomTest = (index: number) => {
-    setCustomTests(customTests.filter((_, i) => i !== index))
-  }
-
-  // Analyze code complexity
-  const handleAnalyzeComplexity = async () => {
-    if (!code.trim()) {
-      alert('Please write some code first')
-      return
-    }
-
-    setAnalyzingComplexity(true)
-    try {
-      const result = await analyzeComplexity(code, language)
-      if (result.success && result.analysis) {
-        try {
-          const parsed = JSON.parse(result.analysis)
-          setComplexityAnalysis(parsed)
-        } catch {
-          setComplexityAnalysis({ explanation: result.analysis })
-        }
-      }
-    } catch (error) {
-      console.error('Failed to analyze complexity:', error)
-    } finally {
-      setAnalyzingComplexity(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <Loader2 className="animate-spin mr-2" />
-        <span>Loading problem...</span>
+        <div className="text-muted-foreground">Loading problem...</div>
       </div>
     )
   }
@@ -182,332 +161,249 @@ export default function ProblemDetailPage() {
   if (!problem) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Problem not found</AlertDescription>
-        </Alert>
+        <div className="text-muted-foreground">Problem not found</div>
       </div>
     )
   }
-
-  const inputFields = template ? getDefaultInputFields(language, template.input_params) : []
-  const passedTests = testResults.filter((r) => r.passed).length
-  const totalTests = testResults.length
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       {/* Header */}
       <header className="h-12 border-b border-border bg-card flex items-center justify-between px-4">
-        <div>
-          <h1 className="text-lg font-semibold">{problem.title}</h1>
+        <div className="flex items-center gap-3">
+          <Link href="/learn" className="flex items-center gap-1 hover:opacity-80 transition">
+            <Home className="w-5 h-5 text-accent" />
+          </Link>
+          <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+          <h1 className="text-lg font-semibold text-accent">{problem.title}</h1>
+          <span
+            className={`text-xs px-2 py-1 rounded font-semibold ${
+              problem.difficulty === 'Easy'
+                ? 'text-green-500 bg-green-500/10'
+                : problem.difficulty === 'Medium'
+                  ? 'text-yellow-500 bg-yellow-500/10'
+                  : 'text-red-500 bg-red-500/10'
+            }`}
+          >
+            {problem.difficulty}
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={problem.difficulty === 'Easy' ? 'default' : problem.difficulty === 'Medium' ? 'secondary' : 'destructive'}>
-            {problem.difficulty}
-          </Badge>
-          <Badge variant="outline">{problem.category}</Badge>
+          <Button size="sm" onClick={handleRunTests} disabled={running} className="bg-accent hover:bg-accent/90">
+            {running ? 'Running...' : 'Run Tests'}
+          </Button>
+          <Button size="sm" onClick={handleAnalyzeComplexity} disabled={analyzingComplexity} variant="outline" className="gap-2 bg-transparent">
+            <Zap className="w-4 h-4" />
+            Complexity
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setShowDevPreferences(true)} className="text-foreground hover:text-accent">
+            <Settings className="w-4 h-4" />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setShowChatbot(!showChatbot)} className="text-foreground hover:text-accent">
+            AI Hints
+          </Button>
         </div>
       </header>
 
+      {/* Dev Preferences Modal */}
+      <DevPreferences isOpen={showDevPreferences} onClose={() => setShowDevPreferences(false)} />
+
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Problem Description & Test Cases */}
-        <div className="flex-1 flex flex-col border-r border-border overflow-hidden">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col">
-            <TabsList className="rounded-none border-b border-border bg-card">
-              <TabsTrigger value="description">Description</TabsTrigger>
-              <TabsTrigger value="tests">
-                Tests
-                {testResults.length > 0 && (
-                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded">
-                    {passedTests}/{totalTests}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="custom">Custom Tests</TabsTrigger>
-            </TabsList>
+      <div className="flex-1 flex overflow-hidden gap-1 p-1 bg-background">
+        {/* Left Panel - Problem Description and Hints */}
+        <div className="w-96 flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0">
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4 border-b border-border">
+              <button
+                onClick={() => setActiveTab('description')}
+                className={`px-3 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+              >
+                Description
+              </button>
+              <button
+                onClick={() => setActiveTab('testcases')}
+                className={`px-3 py-2 text-sm font-medium ${activeTab === 'testcases' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+              >
+                Test Cases
+              </button>
+            </div>
 
             {/* Description Tab */}
-            <TabsContent value="description" className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-4">
-                  <div>
-                    <h2 className="text-sm font-semibold mb-2">Description</h2>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{problem.description}</p>
+            {activeTab === 'description' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-semibold text-accent mb-3">Description</h3>
+                  <div className="bg-background/50 p-4 rounded border border-border max-h-96 overflow-y-auto">
+                    <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{problem.description}</p>
                   </div>
-
-                  <div>
-                    <h2 className="text-sm font-semibold mb-2">Examples</h2>
-                    <pre className="bg-muted p-3 rounded-lg text-xs overflow-x-auto">{problem.example}</pre>
-                  </div>
-
-                  <div>
-                    <h2 className="text-sm font-semibold mb-2">Constraints</h2>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{problem.constraints}</p>
-                  </div>
-
-                  {/* Complexity from Problem */}
-                  {(problem.time_complexity || problem.space_complexity) && (
-                    <Card className="bg-muted/30 border-muted">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Complexity Requirements</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-sm">
-                        {problem.time_complexity && (
-                          <div>
-                            <span className="font-medium">Time:</span> {problem.time_complexity}
-                          </div>
-                        )}
-                        {problem.space_complexity && (
-                          <div>
-                            <span className="font-medium">Space:</span> {problem.space_complexity}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Analyzed Complexity */}
-                  {complexityAnalysis && (
-                    <Card className="bg-green-500/5 border-green-500/50">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Your Solution Analysis</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-sm">
-                        {complexityAnalysis.time_complexity && (
-                          <div>
-                            <span className="font-medium">Time:</span> {complexityAnalysis.time_complexity}
-                          </div>
-                        )}
-                        {complexityAnalysis.space_complexity && (
-                          <div>
-                            <span className="font-medium">Space:</span> {complexityAnalysis.space_complexity}
-                          </div>
-                        )}
-                        {complexityAnalysis.explanation && (
-                          <div>
-                            <span className="font-medium">Explanation:</span>
-                            <p className="text-xs text-muted-foreground mt-1">{complexityAnalysis.explanation}</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
                 </div>
-              </ScrollArea>
-            </TabsContent>
 
-            {/* Test Results Tab */}
-            <TabsContent value="tests" className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-3">
-                  {testResults.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">Run tests to see results</p>
-                  ) : (
-                    <>
-                      {/* Summary */}
-                      <div className="bg-muted p-3 rounded-lg">
-                        <p className="text-sm font-medium">
-                          {passedTests === totalTests ? (
-                            <span className="text-green-600">✓ All tests passed!</span>
-                          ) : (
-                            <span className="text-orange-600">
-                              {passedTests}/{totalTests} tests passed
-                            </span>
-                          )}
-                        </p>
-                      </div>
-
-                      {/* Test Results */}
-                      {testResults.map((result, idx) => (
-                        <Card key={result.test_id} className={result.passed ? 'border-green-500/50 bg-green-500/5' : 'border-red-500/50 bg-red-500/5'}>
-                          <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-xs">
-                                {result.is_hidden ? '🔒 Hidden' : '📝 Example'} Test #{idx + 1}
-                              </CardTitle>
-                              {result.passed ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <XCircle className="h-4 w-4 text-red-600" />
-                              )}
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-2 text-xs">
-                            <div>
-                              <span className="font-medium">Input:</span>
-                              <div className="mt-1 space-y-1">
-                                {result.input_params.map((param: InputParam) => (
-                                  <div key={param.name} className="ml-2 text-muted-foreground">
-                                    {param.name}: {JSON.stringify(param.value)}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="font-medium">Expected:</span>
-                              <div className="ml-2 text-muted-foreground font-mono">{result.expected}</div>
-                            </div>
-                            <div>
-                              <span className="font-medium">Actual:</span>
-                              <div className="ml-2 text-muted-foreground font-mono">{result.actual || result.error}</div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </>
-                  )}
+                <div>
+                  <h3 className="font-semibold text-accent mb-2">Examples</h3>
+                  <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
+                    {problem.example}
+                  </pre>
                 </div>
-              </ScrollArea>
-            </TabsContent>
 
-            {/* Custom Tests Tab */}
-            <TabsContent value="custom" className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-3">
-                  {customTests.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground mb-4">No custom tests yet</p>
-                      <Button onClick={() => setShowCustomTestModal(true)} size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Custom Test
-                      </Button>
+                <div>
+                  <h3 className="font-semibold text-accent mb-2">Constraints</h3>
+                  <p className="text-muted-foreground text-sm whitespace-pre-wrap">{problem.constraints}</p>
+                </div>
+
+                {/* Hints */}
+                <div className="space-y-2 border-t border-border pt-4">
+                  {[1, 2, 3].map((level) => (
+                    <div key={level} className="bg-background/30 rounded border border-border">
+                      <button
+                        onClick={() => setShowHints((prev) => ({ ...prev, [level]: !prev[level] }))}
+                        className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Lightbulb className="w-4 h-4 text-accent" />
+                          <span className="font-medium text-sm">
+                            {level === 1 ? 'Hint 1: Conceptual' : level === 2 ? 'Hint 2: Algorithm & DS' : 'Hint 3: Code Help'}
+                          </span>
+                        </div>
+                        {showHints[level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+
+                      {showHints[level] && (
+                        <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
+                          {hints[level]?.[0]?.content || `Loading hint level ${level}...`}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <Button onClick={() => setShowCustomTestModal(true)} size="sm" className="w-full">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Another Test
-                      </Button>
-
-                      {customTests.map((test, idx) => (
-                        <Card key={idx}>
-                          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                            <CardTitle className="text-xs">Custom Test #{idx + 1}</CardTitle>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveCustomTest(idx)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </CardHeader>
-                          <CardContent className="space-y-2 text-xs">
-                            <div>
-                              <span className="font-medium">Input:</span>
-                              <div className="mt-1 space-y-1">
-                                {test.input_params.map((param) => (
-                                  <div key={param.name} className="ml-2 text-muted-foreground">
-                                    {param.name}: {JSON.stringify(param.value)}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="font-medium">Expected Output:</span>
-                              <div className="ml-2 text-muted-foreground font-mono">{test.expected_output}</div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </>
-                  )}
+                  ))}
                 </div>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
+
+                {/* AI Dynamic Help */}
+                <div className="border-t border-border pt-4 mt-4">
+                  <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
+                  <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
+                  <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => setShowChatbot(true)}>
+                    Open AI Assistant
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Test Cases Tab */}
+            {activeTab === 'testcases' && (
+              <div className="space-y-3">
+                <StructuredTestCases
+                  testCases={testCases}
+                  testResults={testResults}
+                  customTestCases={customTestCases}
+                  onAddCustomTestCase={() =>
+                    setCustomTestCases([
+                      ...customTestCases,
+                      {
+                        id: `custom-${Date.now()}`,
+                        input_params: testCases[0]?.input_params.map((p) => ({ ...p, value: '' })) || [],
+                        expected_output: '',
+                        is_example: false,
+                      },
+                    ])
+                  }
+                  onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
+                  onUpdateCustomTestCase={(index, testCase) => {
+                    const newCustom = [...customTestCases]
+                    newCustom[index] = testCase
+                    setCustomTestCases(newCustom)
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right Panel: Code Editor */}
-        <div className="flex-1 flex flex-col border-r border-border overflow-hidden">
-          {/* Language & Template Selector */}
-          <div className="h-12 border-b border-border bg-card flex items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Language:</label>
-              <select
-                value={language}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                className="bg-muted text-foreground text-sm px-2 py-1 rounded border border-border"
-              >
-                <option value="python">Python</option>
-                <option value="cpp">C++</option>
-                <option value="java">Java</option>
-                <option value="c">C</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowTemplate(!showTemplate)}
-                className="text-xs"
-              >
-                {showTemplate ? 'Hide' : 'Show'} Template
-              </Button>
-            </div>
-          </div>
-
-          {/* Template Info */}
-          {showTemplate && template && (
-            <div className="bg-muted/30 border-b border-border p-3 text-xs">
-              <p className="font-medium mb-2">Function Signature:</p>
-              <pre className="bg-muted p-2 rounded text-xs overflow-x-auto mb-2">
-                {template.template_code.split('\n').slice(0, 3).join('\n')}
-              </pre>
-              <p className="text-muted-foreground">
-                Edit the function body but keep the signature intact. Your function should accept these parameters:
-              </p>
-              <div className="mt-2 space-y-1">
-                {template.input_params.map((param) => (
-                  <div key={param.name} className="text-muted-foreground">
-                    • <span className="font-mono">{param.name}</span> ({param.type})
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Code Editor */}
+        {/* Middle Panel - Code Editor */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-hidden">
             <MonacoEditorInstance
               initialCode={code}
               initialLanguage={language as 'cpp' | 'python' | 'java'}
               onCodeChange={setCode}
-              showRunButton={false}
-              readOnly={false}
+              onRun={(newCode, output) => {
+                setCodeContext(newCode)
+                setOutputContext(output)
+              }}
+              showRunButton={true}
             />
           </div>
-
-          {/* Action Buttons */}
-          <div className="h-12 border-t border-border bg-card flex items-center justify-between px-4">
-            <Button onClick={handleRunTests} disabled={running} className="gap-2">
-              {running && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Play className="h-4 w-4" />
-              Run Tests
-            </Button>
-            <Button
-              onClick={handleAnalyzeComplexity}
-              disabled={analyzingComplexity}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              {analyzingComplexity && <Loader2 className="h-4 w-4 animate-spin" />}
-              Analyze Complexity
-            </Button>
-          </div>
         </div>
-      </div>
 
-      {/* Custom Test Modal */}
-      {showCustomTestModal && template && (
-        <StructuredTestInput
-          inputFields={inputFields}
-          onAddTest={handleAddCustomTest}
-          onClose={() => setShowCustomTestModal(false)}
-        />
-      )}
+        {/* Resizable Divider and Right Panels */}
+        {showChatbot && (
+          <>
+            <div
+              onMouseDown={(e) => {
+                const startX = e.clientX
+                const startWidth = chatbotWidth
+
+                const handleMouseMove = (e: MouseEvent) => {
+                  const delta = e.clientX - startX
+                  setChatbotWidth(Math.max(300, Math.min(600, startWidth - delta)))
+                }
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove)
+                  document.removeEventListener('mouseup', handleMouseUp)
+                }
+
+                document.addEventListener('mousemove', handleMouseMove)
+                document.addEventListener('mouseup', handleMouseUp)
+              }}
+              className="w-0.5 bg-border hover:bg-accent cursor-col-resize transition-colors"
+            />
+            <div style={{ width: `${chatbotWidth}px` }} className="flex flex-col overflow-hidden flex-shrink-0">
+              <AIChatbot onClose={() => setShowChatbot(false)} codeContext={codeContext} outputContext={outputContext} />
+            </div>
+          </>
+        )}
+
+        {showPerformanceAnalyzer && (
+          <>
+            <div
+              onMouseDown={(e) => {
+                const startX = e.clientX
+                const startWidth = chatbotWidth
+
+                const handleMouseMove = (e: MouseEvent) => {
+                  const delta = e.clientX - startX
+                  setChatbotWidth(Math.max(300, Math.min(600, startWidth - delta)))
+                }
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove)
+                  document.removeEventListener('mouseup', handleMouseUp)
+                }
+
+                document.addEventListener('mousemove', handleMouseMove)
+                document.addEventListener('mouseup', handleMouseUp)
+              }}
+              className="w-0.5 bg-border hover:bg-accent cursor-col-resize transition-colors"
+            />
+            <div style={{ width: `${chatbotWidth}px` }} className="flex flex-col overflow-hidden flex-shrink-0">
+              <div className="h-12 border-b border-border flex items-center justify-between px-4 flex-shrink-0">
+                <span className="text-sm font-medium text-foreground">Performance Analysis</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowPerformanceAnalyzer(false)}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-auto">
+                <PerformanceAnalyzer analysis={complexityAnalysis} loading={analyzingComplexity} />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
