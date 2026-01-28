@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X } from 'lucide-react'
-import { getProblem, getTestCases, getHints, runTests, analyzeComplexity } from '@/lib/api'
+import { getProblem, getTestCases, getHints, runTests, analyzeComplexity, getTemplate } from '@/lib/api'
 import { MonacoEditorInstance } from '@/components/monaco-editor-instance'
 import { AIChatbot } from '@/components/ai-chatbot'
 import { DevPreferences } from '@/components/dev-preferences'
@@ -18,10 +18,12 @@ interface Problem {
   description: string
   difficulty: string
   category: string
-  example: string
+  examples: string
+  topic?: string
   constraints: string
   time_complexity?: string
   space_complexity?: string
+  created_at?: string
 }
 
 interface TestCase {
@@ -78,6 +80,17 @@ export default function ProblemDetailPage() {
     fetchProblemData()
   }, [problemId])
 
+  // Load template when language changes
+  useEffect(() => {
+    const loadTemplate = async () => {
+      const templateRes = await getTemplate(problemId, language)
+      if (templateRes.success && templateRes.template?.template_code) {
+        setCode(templateRes.template.template_code)
+      }
+    }
+    loadTemplate()
+  }, [language, problemId])
+
   const handleRunTests = async () => {
     if (!code.trim()) return
     setRunning(true)
@@ -86,6 +99,7 @@ export default function ProblemDetailPage() {
       if (result.success && result.results) {
         setTestResults(result.results)
         setCodeContext(code)
+        setActiveTab('testcases')
       }
     } catch (error) {
       console.error('Failed to run tests:', error)
@@ -131,7 +145,6 @@ export default function ProblemDetailPage() {
       const testCasesRes = await getTestCases(problemId)
       if (testCasesRes.success && testCasesRes.test_cases) {
         setTestCases(testCasesRes.test_cases)
-        console.log(testCasesRes.test_cases)
       }
 
       for (let level = 1; level <= 3; level++) {
@@ -144,7 +157,7 @@ export default function ProblemDetailPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to load problem:', error)
+      console.error('[v0] Failed to load problem:', error)
     } finally {
       setLoading(false)
     }
@@ -242,7 +255,7 @@ export default function ProblemDetailPage() {
                 <div>
                   <h3 className="font-semibold text-accent mb-2">Examples</h3>
                   <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
-                    {problem.example}
+                    {problem.examples}
                   </pre>
                 </div>
 
@@ -295,17 +308,17 @@ export default function ProblemDetailPage() {
                   testCases={testCases}
                   testResults={testResults}
                   customTestCases={customTestCases}
-                  onAddCustomTestCase={() =>
+                  onAddCustomTestCase={() => {
+                    if (testCases.length === 0) return
                     setCustomTestCases([
                       ...customTestCases,
                       {
                         id: `custom-${Date.now()}`,
-                        input_params: testCases[0]?.input_params.map((p) => ({ ...p, value: '' })) || [],
+                        input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || [],
                         expected_output: '',
-                        is_example: false,
                       },
                     ])
-                  }
+                  }}
                   onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
                   onUpdateCustomTestCase={(index, testCase) => {
                     const newCustom = [...customTestCases]
@@ -325,6 +338,7 @@ export default function ProblemDetailPage() {
               initialCode={code}
               initialLanguage={language as 'cpp' | 'python' | 'java'}
               onCodeChange={setCode}
+              onLanguageChange={setLanguage}
               onRun={(newCode, output) => {
                 setCodeContext(newCode)
                 setOutputContext(output)

@@ -42,6 +42,7 @@ interface MonacoEditorProps {
   initialCode?: string
   initialLanguage?: "cpp" | "python" | "java"
   onCodeChange?: (code: string) => void
+  onLanguageChange?: (language: "cpp" | "python" | "java") => void
   onRun?: (code: string, output: string) => void
   showRunButton?: boolean
   readOnly?: boolean
@@ -51,6 +52,7 @@ export function MonacoEditorInstance({
   initialCode,
   initialLanguage = "cpp",
   onCodeChange,
+  onLanguageChange,
   onRun,
   showRunButton = true,
   readOnly = false,
@@ -154,19 +156,36 @@ export function MonacoEditorInstance({
     }
   }, [])
 
+  // Sync language when initialLanguage prop changes
+  useEffect(() => {
+    if (initialLanguage !== language) {
+      setLanguage(initialLanguage)
+    }
+  }, [initialLanguage])
+
+  // Sync code when initialCode prop changes
+  useEffect(() => {
+    if (editorInstanceRef.current && initialCode && initialCode !== code) {
+      const newCode = initialCode
+      setCode(newCode)
+      editorInstanceRef.current.setValue(newCode)
+    }
+  }, [initialCode])
+
   const handleLanguageChange = (newLang: "cpp" | "python" | "java") => {
     setLanguage(newLang)
-    const newCode = SAMPLE_CODE[newLang]
-    setCode(newCode)
-
+    
+    // Update Monaco language model
     if (editorInstanceRef.current) {
       const monaco = (window as any).monaco
       const model = editorInstanceRef.current.getModel()
-
       monaco.editor.setModelLanguage(model, newLang)
-      editorInstanceRef.current.setValue(newCode)
       editorInstanceRef.current.focus()
-      onCodeChange?.(newCode)
+    }
+    
+    // Call parent component callback to load template from database
+    if (onLanguageChange) {
+      onLanguageChange(newLang)
     }
   }
 

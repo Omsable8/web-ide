@@ -57,21 +57,9 @@ export function StructuredTestCases({
   }
 
   const parseParamValue = (value: string, type: string) => {
-    try {
-      if (type === 'array') {
-        return value.split(',').map(v => {
-          const trimmed = v.trim()
-          return isNaN(Number(trimmed)) ? trimmed : Number(trimmed)
-        })
-      } else if (type === 'integer' || type === 'number') {
-        return Number(value)
-      } else if (type === 'boolean') {
-        return value.toLowerCase() === 'true'
-      }
-      return value
-    } catch {
-      return value
-    }
+    // Keep values as strings in the component state
+    // Backend will handle type conversion
+    return value
   }
 
   return (
