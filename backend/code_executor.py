@@ -91,6 +91,7 @@ class CodeExecutor:
             
             # Output file without extension
             temp_out = temp_cpp.replace('.cpp', '')
+            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
             
             try:
                 # Compile C++ code
@@ -143,13 +144,17 @@ class CodeExecutor:
             
             # Java requires specific class naming
             # Extract class name from code or use default
-            class_name = CodeExecutor._extract_java_class_name(code)
-            if not class_name:
-                class_name = 'Solution'
+            # class_name = CodeExecutor._extract_java_class_name(code)
+            class_name = "Main"
+
+            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
             
-            # If code doesn't have proper class name, wrap it
-            if f'public class {class_name}' not in code:
-                code = f'public class {class_name} {{\n{code}\n}}'
+            # if not class_name:
+            #     class_name = 'Solution'
+            
+            # # If code doesn't have proper class name, wrap it
+            # if f'public class {class_name}' not in code:
+            #     code = f'public class {class_name} {{\n{code}\n}}'
             
             temp_java = os.path.join(temp_dir, f'{class_name}.java')
             

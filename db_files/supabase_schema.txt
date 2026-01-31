@@ -1,0 +1,108 @@
+
+Below are the schemas (columns, types, defaults, constraints, PK/FKs) and the first 5 rows for each requested table.
+
+=============================================
+TABLE: problems
+
+SCHEMA:
+
+id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+title text
+description text
+difficulty text CHECK (difficulty IN ('Easy','Medium','Hard'))
+category text
+topic text
+examples text
+constraints text
+time_complexity text (nullable)
+space_complexity text (nullable)
+created_at timestamp DEFAULT CURRENT_TIMESTAMP
+updated_at timestamp DEFAULT CURRENT_TIMESTAMP
+RLS: enabled
+Referenced by: test_cases.problem_id, code_templates.problem_id, user_progress.problem_id, user_solutions.problem_id, hints.problem_id
+
+DATA:
+
+id: 50f38552-77e7-402c-8614-fb214568d099
+title: Two Sum
+description: Find two numbers that add up to a target.
+difficulty: Easy
+category: Arrays & Hashing
+topic: Array
+examples: [{"input": "nums=[2,7,11,15], target=9", "output": "[0,1]"}]
+constraints: 2 <= nums.length <= 10^4
+time_complexity: O(n)
+space_complexity: O(n)
+created_at/updated_at: 2026-01-22 07:20:28.867826*
+
+========================================
+TABLE: test_cases
+
+Schema:
+
+id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+problem_id uuid REFERENCES public.problems(id)
+is_hidden boolean DEFAULT false (nullable)
+explanation text (nullable)
+input_params jsonb DEFAULT '[]'::jsonb (nullable)
+created_at timestamp DEFAULT CURRENT_TIMESTAMP
+RLS: enabled
+
+DATA:
+{"id":"5bc01176-651c-4175-95c4-f4f0d1f7cb44","problem_id":"6c2d0bdc-2ad2-46b6-bfe3-5b2f1ff32017",is_hidden":false,"explanation":null,"created_at":"2026-01-30 10:25:18.734264","input_params":"[{\"nums\": [2, 7, 11, 15], \"target\": 9}, {\"nums\": [3, 2, 4], \"target\": 6}]"}
+{"id":"61dc91ad-9ffe-4239-987b-5d0692256021","problem_id":"6c2d0bdc-2ad2-46b6-bfe3-5b2f1ff32017",is_hidden":true,"explanation":null,"created_at":"2026-01-30 10:25:18.734264","input_params":"[{\"nums\": [3, 3], \"target\": 6}, {\"nums\": [1, 2, 3, 4, 5], \"target\": 9}]"}
+
+==============================================
+TABLE: code_templates
+
+SCHEMA:
+
+id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+problem_id uuid REFERENCES public.problems(id)
+language varchar
+template_code text
+function_name varchar
+input_params jsonb
+return_type varchar
+created_at timestamp DEFAULT now()
+updated_at timestamp DEFAULT now()
+driver_code text
+solution_code text
+RLS: enabled
+
+DATA:
+
+{"id":"86537743-c446-416b-bb84-27dde2c1b0c5",
+"problem_id":"6c2d0bdc-2ad2-46b6-bfe3-5b2f1ff32017","language":"python",
+"template_code":"class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        # Your code here\n        pass",
+"function_name":"twoSum",
+"input_params":"[{\"name\": \"nums\", \"type\": \"array\"}, {\"name\": \"target\", \"type\": \"integer\"}]",
+"return_type":"array","created_at":"2026-01-30 10:25:18.734264",
+"updated_at":"2026-01-30 10:25:18.734264",
+"driver_code":"import sys, json\nif __name__ == \"__main__\":\n    lines = sys.stdin.read().splitlines()\n    sol = Solution()\n    for line in lines:\n        params = json.loads(line)\n        result = sol.twoSum(**params)\n        print(json.dumps(result))",
+"solution_code": "class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        prevMap = {}  # val : index
+        for i, n in enumerate(nums):
+            diff = target - n
+            if diff in prevMap:
+                return [prevMap[diff], i]
+            prevMap[n] = i
+        return []"}
+
+====================================
+TABLE: hints
+
+SCHEMA:
+
+id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+problem_id uuid REFERENCES public.problems(id)
+hints_data jsonb DEFAULT '[]'::jsonb
+created_at timestamp DEFAULT CURRENT_TIMESTAMP
+RLS: enabled
+
+ROWS:
+{"id":"8c31f564-f940-4965-8604-b4e18ab13a4a",
+"problem_id":"6c2d0bdc-2ad2-46b6-bfe3-5b2f1ff32017",
+"created_at":"2026-01-30 10:25:18.734264",
+"hints_data":"[{\"level\": 1, \"title\": \"Conceptual Help\", \"content\": \"A brute force approach would be to check every pair, but can you do it in better than O(n^2) time?\"}, {\"level\": 2, \"title\": \"Algorithm Help\", \"content\": \"Try using a Hash Map to store values you have already seen. For each number, calculate its complement (target - num).\"}, {\"level\": 3, \"title\": \"Code Help\", \"content\": \"If the complement exists in your map, return the current index and the index stored in the map. Otherwise, add the current number to the map.\"}]"}

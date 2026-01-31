@@ -13,8 +13,7 @@ interface InputParam {
 interface TestCaseData {
   id: string
   input_params: InputParam[]
-  expected_output: string
-  is_example?: boolean
+  is_hidden?: boolean
 }
 
 interface TestResultData {
@@ -137,22 +136,12 @@ export function StructuredTestCases({
                 </div>
               ))}
 
-              {/* Expected Output (Read-only for predefined, editable for custom) */}
-              <div className="space-y-2 pt-2 border-t border-border">
-                <label className="text-sm font-medium text-foreground">Expected Output</label>
-                <textarea
-                  value={selectedTestCase.expected_output}
-                  onChange={(e) => {
-                    const newTestCase = { ...selectedTestCase }
-                    newTestCase.expected_output = e.target.value
-                    if (selectedCaseIndex >= testCases.length) {
-                      onUpdateCustomTestCase(selectedCaseIndex - testCases.length, newTestCase)
-                    }
-                  }}
-                  disabled={selectedCaseIndex < testCases.length}
-                  className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none h-20"
-                />
-              </div>
+              {/* Note: Expected output is auto-generated from solution code */}
+              {selectedCaseIndex >= testCases.length && (
+                <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+                  Expected output will be generated automatically when you run tests.
+                </div>
+              )}
 
               {/* Delete Button for Custom Cases */}
               {selectedCaseIndex >= testCases.length && (
@@ -202,24 +191,39 @@ export function StructuredTestCases({
                   </span>
                 </div>
 
-                {!result.passed && (
-                  <div className="space-y-2 text-xs font-mono">
-                    <div className="bg-background p-2 rounded">
-                      <span className="text-muted-foreground">Expected: </span>
-                      <span className="text-green-400">{result.expected}</span>
+                <div className="space-y-2 text-xs font-mono">
+                  {/* Input */}
+                  <div className="bg-background p-3 rounded">
+                    <div className="text-muted-foreground mb-1">Input:</div>
+                    <div className="text-foreground">
+                      {result.input_params.map((param, pidx) => (
+                        <div key={pidx}>
+                          {param.name} = <span className="text-blue-400">{getParamValue(param)}</span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="bg-background p-2 rounded">
-                      <span className="text-muted-foreground">Got: </span>
-                      <span className="text-red-400">{result.actual}</span>
-                    </div>
-                    {result.error && (
-                      <div className="bg-background p-2 rounded">
-                        <span className="text-muted-foreground">Error: </span>
-                        <span className="text-yellow-400">{result.error}</span>
-                      </div>
-                    )}
                   </div>
-                )}
+
+                  {/* Expected Output */}
+                  <div className="bg-background p-3 rounded">
+                    <div className="text-muted-foreground mb-1">Expected:</div>
+                    <div className="text-green-400">{result.expected}</div>
+                  </div>
+
+                  {/* Actual Output */}
+                  <div className="bg-background p-3 rounded">
+                    <div className="text-muted-foreground mb-1">Actual:</div>
+                    <div className={result.passed ? 'text-green-400' : 'text-red-400'}>{result.actual}</div>
+                  </div>
+
+                  {/* Error if any */}
+                  {result.error && (
+                    <div className="bg-background p-3 rounded">
+                      <div className="text-muted-foreground mb-1">Error:</div>
+                      <div className="text-yellow-400">{result.error}</div>
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}

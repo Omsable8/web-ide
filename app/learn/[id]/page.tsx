@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X } from 'lucide-react'
-import { getProblem, getTestCases, getHints, runTests, analyzeComplexity, getTemplate } from '@/lib/api'
+import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate } from '@/lib/api'
 import { MonacoEditorInstance } from '@/components/monaco-editor-instance'
 import { AIChatbot } from '@/components/ai-chatbot'
 import { DevPreferences } from '@/components/dev-preferences'
@@ -28,18 +28,16 @@ interface Problem {
 
 interface TestCase {
   id: string
-  problem_id: string
+  problem_id?: string
   input_params: Array<{ name: string; type: string; value?: any }>
-  expected_output: string
-  is_hidden: boolean
-  is_example: boolean
+  is_hidden?: boolean
   explanation?: string
-  created_at: string
+  created_at?: string
 }
 
 interface Hint {
-  id: string
   level: number
+  title: string
   content: string
 }
 
@@ -59,7 +57,7 @@ export default function ProblemDetailPage() {
   const [problem, setProblem] = useState<Problem | null>(null)
   const [testCases, setTestCases] = useState<TestCase[]>([])
   const [customTestCases, setCustomTestCases] = useState<TestCase[]>([])
-  const [hints, setHints] = useState<Record<number, Hint[]>>({})
+  const [hints, setHints] = useState<Hint[]>([])
   const [loading, setLoading] = useState(true)
   const [code, setCode] = useState('')
   const [language, setLanguage] = useState('python')
@@ -95,7 +93,7 @@ export default function ProblemDetailPage() {
     if (!code.trim()) return
     setRunning(true)
     try {
-      const result = await runTests(problemId, code, language)
+      const result = await runTests(problemId, code, language, customTestCases)
       if (result.success && result.results) {
         setTestResults(result.results)
         setCodeContext(code)
@@ -103,6 +101,26 @@ export default function ProblemDetailPage() {
       }
     } catch (error) {
       console.error('Failed to run tests:', error)
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!code.trim()) return
+    setRunning(true)
+    try {
+      const result = await submitCode(problemId, code, language, customTestCases)
+      if (result.success && result.results) {
+        setTestResults(result.results)
+        setCodeContext(code)
+        setActiveTab('testcases')
+        if (result.accepted) {
+          alert('All tests passed! Problem solved! 🎉')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to submit code:', error)
     } finally {
       setRunning(false)
     }
@@ -143,18 +161,13 @@ export default function ProblemDetailPage() {
       }
 
       const testCasesRes = await getTestCases(problemId)
-      if (testCasesRes.success && testCasesRes.test_cases) {
-        setTestCases(testCasesRes.test_cases)
+      if (testCasesRes.success && testCasesRes.public_test_cases) {
+        setTestCases(testCasesRes.public_test_cases)
       }
 
-      for (let level = 1; level <= 3; level++) {
-        const hintsRes = await getHints(problemId, level)
-        if (hintsRes.success) {
-          setHints((prev) => ({
-            ...prev,
-            [level]: hintsRes.hints || [],
-          }))
-        }
+      const hintsRes = await getHints(problemId)
+      if (hintsRes.success && hintsRes.hints) {
+        setHints(hintsRes.hints)
       }
     } catch (error) {
       console.error('[v0] Failed to load problem:', error)
@@ -204,6 +217,9 @@ export default function ProblemDetailPage() {
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={handleRunTests} disabled={running} className="bg-accent hover:bg-accent/90">
             {running ? 'Running...' : 'Run Tests'}
+          </Button>
+          <Button size="sm" onClick={handleSubmit} disabled={running} variant="default" className="bg-green-600 hover:bg-green-700">
+            {running ? 'Submitting...' : 'Submit'}
           </Button>
           <Button size="sm" onClick={handleAnalyzeComplexity} disabled={analyzingComplexity} variant="outline" className="gap-2 bg-transparent">
             <Zap className="w-4 h-4" />
@@ -266,24 +282,24 @@ export default function ProblemDetailPage() {
 
                 {/* Hints */}
                 <div className="space-y-2 border-t border-border pt-4">
-                  {[1, 2, 3].map((level) => (
-                    <div key={level} className="bg-background/30 rounded border border-border">
+                  {hints.map((hint) => (
+                    <div key={hint.level} className="bg-background/30 rounded border border-border">
                       <button
-                        onClick={() => setShowHints((prev) => ({ ...prev, [level]: !prev[level] }))}
+                        onClick={() => setShowHints((prev) => ({ ...prev, [hint.level]: !prev[hint.level] }))}
                         className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
                       >
                         <div className="flex items-center gap-2">
                           <Lightbulb className="w-4 h-4 text-accent" />
                           <span className="font-medium text-sm">
-                            {level === 1 ? 'Hint 1: Conceptual' : level === 2 ? 'Hint 2: Algorithm & DS' : 'Hint 3: Code Help'}
+                            Hint {hint.level}: {hint.title}
                           </span>
                         </div>
-                        {showHints[level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        {showHints[hint.level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </button>
 
-                      {showHints[level] && (
+                      {showHints[hint.level] && (
                         <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
-                          {hints[level]?.[0]?.content || `Loading hint level ${level}...`}
+                          {hint.content}
                         </div>
                       )}
                     </div>
@@ -314,8 +330,8 @@ export default function ProblemDetailPage() {
                       ...customTestCases,
                       {
                         id: `custom-${Date.now()}`,
-                        input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || [],
-                        expected_output: '',
+                        is_hidden:false,
+                        input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
                       },
                     ])
                   }}
