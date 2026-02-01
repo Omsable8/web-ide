@@ -54,6 +54,7 @@ class CodeExecutor:
                 f.write(code)
                 temp_file = f.name
             
+            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
             try:
                 # Run Python code
                 result = subprocess.run(

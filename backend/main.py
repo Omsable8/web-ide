@@ -505,7 +505,7 @@ def submit_code(problem_id):
         
         # Build stdin string - single execution for all tests
         stdin_string = build_stdin(all_test_inputs, language)
-        
+        # print(f"Built stdin string for {total_tests} tests:\n{stdin_string}")
         # Execute user code once with all tests
         from code_executor import CodeExecutor
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code, language, stdin_string)
@@ -571,19 +571,25 @@ def build_stdin(test_inputs, language):
             value = param.get('value', '')
             param_type = param.get('type', 'string')
             
-            if param_type == "array" and isinstance(value,list):
+            if (param_type == "array" or param_type=="linked_list") and isinstance(value,list):
+                # length of array
+                lines.append(str(len(value)))
                 # Convert list to space-separated values
                 lines.append(' '.join(map(str, value)))
-            elif param_type == "array" and isinstance(value,str):
+            elif (param_type == "array" or param_type=="linked_list") and isinstance(value,str):
                 # Convert list to space-separated values
                 value_list = json.loads(value)
+                # length of array
+                lines.append(str(len(value_list)))
                 lines.append(' '.join(map(str, value_list)))
             elif param_type == "2d_array" and isinstance(value,list):
                 # Each sub-array on a new line
+                lines.append(f"{len(value)} {len(value[0]) if value else 0}")  # Number of rows, columns
                 for sub_array in value:
                     lines.append(' '.join(map(str, sub_array)))
             elif param_type == "2d_array" and isinstance(value,str):
                 value_2d = json.loads(value)
+                lines.append(f"{len(value_2d)} {len(value_2d[0]) if value_2d else 0}")  # Number of rows, columns
                 for sub_array in value_2d:
                     lines.append(' '.join(map(str, sub_array)))
             else:
