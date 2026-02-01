@@ -8,9 +8,10 @@ import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Setti
 import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate } from '@/lib/api'
 import { MonacoEditorInstance } from '@/components/monaco-editor-instance'
 import { AIChatbot } from '@/components/ai-chatbot'
-import { DevPreferences } from '@/components/dev-preferences'
-import { PerformanceAnalyzer } from '@/components/performance-analyzer'
 import { StructuredTestCases } from '@/components/structured-test-cases'
+import { SubmissionModal } from '@/components/submission-modal'
+import {DevPreferences} from '@/components/dev-preferences' // Import DevPreferences
+import {PerformanceAnalyzer} from '@/components/performance-analyzer' // Import PerformanceAnalyzer
 
 interface Problem {
   id: string
@@ -54,7 +55,7 @@ export default function ProblemDetailPage() {
   const params = useParams()
   const problemId = params.id as string
 
-  const [problem, setProblem] = useState<Problem | null>(null)
+  const [problem, setProblem] = useState<Problem |undefined| null>(null)
   const [testCases, setTestCases] = useState<TestCase[]>([])
   const [customTestCases, setCustomTestCases] = useState<TestCase[]>([])
   const [hints, setHints] = useState<Hint[]>([])
@@ -69,10 +70,13 @@ export default function ProblemDetailPage() {
   const [outputContext, setOutputContext] = useState<string>('')
   const [running, setRunning] = useState(false)
   const [testResults, setTestResults] = useState<TestResult[]>([])
+  const [submissionResult, setSubmissionResult] = useState<{ total: number|undefined; passed: number|undefined; accepted: boolean |undefined} | null>(null)
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false)
   const [showDevPreferences, setShowDevPreferences] = useState(false)
   const [showPerformanceAnalyzer, setShowPerformanceAnalyzer] = useState(false)
   const [complexityAnalysis, setComplexityAnalysis] = useState<{ timeComplexity: string; spaceComplexity: string; explanation?: string } | null>(null)
   const [analyzingComplexity, setAnalyzingComplexity] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false) // Declare isSubmitting variable
 
   useEffect(() => {
     fetchProblemData()
@@ -112,12 +116,19 @@ export default function ProblemDetailPage() {
     try {
       const result = await submitCode(problemId, code, language, customTestCases)
       if (result.success && result.results) {
-        setTestResults(result.results)
+        // Filter out private tests for display
+        const publicResults = result.results.filter(r => !r.is_hidden)
+        setTestResults(publicResults)
         setCodeContext(code)
         setActiveTab('testcases')
-        if (result.accepted) {
-          alert('All tests passed! Problem solved! 🎉')
-        }
+        
+        // Store submission result and show modal
+        setSubmissionResult({
+          total: result.total_tests,
+          passed: result.passed_tests,
+          accepted: result.accepted || false
+        })
+        setShowSubmissionModal(true)
       }
     } catch (error) {
       console.error('Failed to submit code:', error)
@@ -330,7 +341,6 @@ export default function ProblemDetailPage() {
                       ...customTestCases,
                       {
                         id: `custom-${Date.now()}`,
-                        is_hidden:false,
                         input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
                       },
                     ])
@@ -433,6 +443,14 @@ export default function ProblemDetailPage() {
             </div>
           </>
         )}
+
+      {/* Submission Results Modal */}
+      {showSubmissionModal && submissionResult && (
+        <SubmissionModal
+          result={submissionResult}
+          onClose={() => setShowSubmissionModal(false)}
+        />
+      )}
       </div>
     </div>
   )

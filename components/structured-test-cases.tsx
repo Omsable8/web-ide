@@ -23,6 +23,8 @@ interface TestResultData {
   actual: string
   passed: boolean
   error?: string
+  is_hidden?: boolean
+  type?: 'public' | 'private' | 'custom'
 }
 
 interface StructuredTestCasesProps {
@@ -32,6 +34,7 @@ interface StructuredTestCasesProps {
   onAddCustomTestCase: () => void
   onRemoveCustomTestCase: (index: number) => void
   onUpdateCustomTestCase: (index: number, testCase: TestCaseData) => void
+  isSubmitMode?: boolean
 }
 
 export function StructuredTestCases({
@@ -41,6 +44,7 @@ export function StructuredTestCases({
   onAddCustomTestCase,
   onRemoveCustomTestCase,
   onUpdateCustomTestCase,
+  isSubmitMode,
 }: StructuredTestCasesProps) {
   const [activeTab, setActiveTab] = useState<'testcase' | 'result'>('testcase')
   const [selectedCaseIndex, setSelectedCaseIndex] = useState(0)
@@ -171,61 +175,85 @@ export function StructuredTestCases({
               <p>Run tests to see results</p>
             </div>
           ) : (
-            testResults.map((result, idx) => (
-              <div
-                key={idx}
-                className={`p-4 rounded-lg border-2 transition-colors ${
-                  result.passed
-                    ? 'bg-green-500/5 border-green-500/30'
-                    : 'bg-red-500/5 border-red-500/30'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  {result.passed ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-500" />
-                  )}
-                  <span className={`font-semibold ${result.passed ? 'text-green-500' : 'text-red-500'}`}>
-                    Test Case {idx + 1}
-                  </span>
+            <>
+              {isSubmitMode && (
+                <div className="p-4 rounded-lg border-2 border-accent/30 bg-accent/5">
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-foreground">
+                      Submission Results
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      <div>Total Tests: {testResults.length}</div>
+                      <div className="text-green-400">Passed: {testResults.filter(r => r.passed).length}</div>
+                      <div className="text-red-400">Failed: {testResults.filter(r => !r.passed).length}</div>
+                    </div>
+                    {testResults.every(r => r.passed) && (
+                      <div className="text-sm font-semibold text-green-400 pt-2">
+                        ✓ All tests passed!
+                      </div>
+                    )}
+                  </div>
                 </div>
+              )}
 
-                <div className="space-y-2 text-xs font-mono">
-                  {/* Input */}
-                  <div className="bg-background p-3 rounded">
-                    <div className="text-muted-foreground mb-1">Input:</div>
-                    <div className="text-foreground">
-                      {result.input_params.map((param, pidx) => (
-                        <div key={pidx}>
-                          {param.name} = <span className="text-blue-400">{getParamValue(param)}</span>
+              {testResults
+                .filter(result => !isSubmitMode || !result.is_hidden)
+                .map((result, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-lg border-2 transition-colors ${
+                      result.passed
+                        ? 'bg-green-500/5 border-green-500/30'
+                        : 'bg-red-500/5 border-red-500/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      {result.passed ? (
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-500" />
+                      )}
+                      <span className={`font-semibold ${result.passed ? 'text-green-500' : 'text-red-500'}`}>
+                        {result.type === 'custom' ? 'Custom Test' : `Test Case ${idx + 1}`}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs font-mono">
+                      {/* Input */}
+                      <div className="bg-background p-3 rounded">
+                        <div className="text-muted-foreground mb-1">Input:</div>
+                        <div className="text-foreground">
+                          {result.input_params.map((param, pidx) => (
+                            <div key={pidx}>
+                              {param.name} = <span className="text-blue-400">{getParamValue(param)}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+
+                      {/* Expected Output */}
+                      <div className="bg-background p-3 rounded">
+                        <div className="text-muted-foreground mb-1">Expected:</div>
+                        <div className="text-green-400">{result.expected}</div>
+                      </div>
+
+                      {/* Actual Output */}
+                      <div className="bg-background p-3 rounded">
+                        <div className="text-muted-foreground mb-1">Actual:</div>
+                        <div className={result.passed ? 'text-green-400' : 'text-red-400'}>{result.actual}</div>
+                      </div>
+
+                      {/* Error if any */}
+                      {result.error && (
+                        <div className="bg-background p-3 rounded">
+                          <div className="text-muted-foreground mb-1">Error:</div>
+                          <div className="text-yellow-400">{result.error}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  {/* Expected Output */}
-                  <div className="bg-background p-3 rounded">
-                    <div className="text-muted-foreground mb-1">Expected:</div>
-                    <div className="text-green-400">{result.expected}</div>
-                  </div>
-
-                  {/* Actual Output */}
-                  <div className="bg-background p-3 rounded">
-                    <div className="text-muted-foreground mb-1">Actual:</div>
-                    <div className={result.passed ? 'text-green-400' : 'text-red-400'}>{result.actual}</div>
-                  </div>
-
-                  {/* Error if any */}
-                  {result.error && (
-                    <div className="bg-background p-3 rounded">
-                      <div className="text-muted-foreground mb-1">Error:</div>
-                      <div className="text-yellow-400">{result.error}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
+                ))}
+            </>
           )}
         </div>
       )}
