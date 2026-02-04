@@ -11,7 +11,9 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     HOST = os.getenv('HOST', '0.0.0.0')
-    PORT = int(os.getenv('PORT', 5000))
+    DBPORT = int(os.getenv('PORT', 5000))
+    EXEPORT = int(os.getenv('PORT', 5001))
+    AIPORT = int(os.getenv('PORT', 5002))
     
     # AI settings
     AI_MODEL = os.getenv('AI_MODEL', 'gpt-4')

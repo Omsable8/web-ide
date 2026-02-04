@@ -1,295 +1,30 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import eventlet
+eventlet.monkey_patch()
+
+from flask_socketio import SocketIO, emit, disconnect
+import tempfile
+import os
 import sys
+import json
+import socketio
 import traceback
+from flask import Flask, app, request, jsonify
+from flask_cors import CORS
 
 from config import Config
 from code_executor import CodeExecutor
-from ai_chatbot import AIChatbot
-from template_executor import TemplateExecutor
-import json
+from debugger import PdbSession 
 
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
-
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
-# Global instances
-ai_chatbot = AIChatbot(model=Config.AI_MODEL, api_key=Config.OPENAI_API_KEY)
-
-# Validate configuration
-Config.validate()
-
-# ============================================================================
-# Code Templates Endpoints
-# ============================================================================
-
-@app.route('/api/problems/<problem_id>/template', methods=['GET'])
-def get_template(problem_id):
-    """Fetch code template for a specific language"""
-    try:
-        from supabase import create_client
-        import os
-        
-        language = request.args.get('language', 'python')
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        template = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
-        
-        if not template.data:
-            return jsonify({"success": False, "error": "Template not found for this language"}), 404
-        
-        return jsonify({
-            "success": True,
-            "template": template.data
-        })
-        
-    except Exception as e:
-        print(f"[ERROR] Get template failed: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-# ============================================================================
-# AI Chatbot Endpoints
-# ============================================================================
-
-@app.route('/api/ai/chat', methods=['POST'])
-def ai_chat():
-    """Send message to AI chatbot with optional code and error context"""
-    try:
-        data = request.get_json()
-        message = data.get('message', '')
-        code_context = data.get('code', None)
-        error_context = data.get('error', None)
-        
-        if not message:
-            return jsonify({"success": False, "error": "No message provided"}), 400
-        
-        response = ai_chatbot.get_response(message, code_context, error_context)
-        
-        return jsonify({
-            "success": True,
-            "response": response,
-            "history": ai_chatbot.get_conversation_history()
-        })
-        
-    except Exception as e:
-        print(f"[ERROR] AI chat failed: {str(e)}")
-        traceback.print_exc()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/ai/set-model', methods=['POST'])
-def set_model():
-    """Set the AI model to use"""
-    try:
-        data = request.get_json()
-        model = data.get('model', '')
-        
-        if not model:
-            return jsonify({"success": False, "error": "No model provided"}), 400
-        
-        ai_chatbot.set_model(model)
-        
-        return jsonify({"success": True, "message": f"Model set to {model}"})
-        
-    except Exception as e:
-        print(f"[ERROR] Set model failed: {str(e)}")
-        traceback.print_exc()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/ai/analyze', methods=['POST'])
-def analyze_code():
-    """Analyze code for potential issues"""
-    try:
-        data = request.get_json()
-        code = data.get('code', '')
-        language = data.get('language', 'python')
-        
-        if not code:
-            return jsonify({"success": False, "error": "No code provided"}), 400
-        
-        analysis = ai_chatbot.analyze_code(code, language)
-        
-        return jsonify({"success": True, "analysis": analysis})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/ai/explain-failure', methods=['POST'])
-def explain_failure():
-    """Explain test case failure"""
-    try:
-        data = request.get_json()
-        expected = data.get('expected', '')
-        actual = data.get('actual', '')
-        test_input = data.get('input', '')
-        
-        explanation = ai_chatbot.explain_test_case_failure(expected, actual, test_input)
-        
-        return jsonify({"success": True, "explanation": explanation})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/ai/clear', methods=['POST'])
-def clear_chat():
-    """Clear chat history"""
-    try:
-        ai_chatbot.clear_history()
-        return jsonify({"success": True, "message": "Chat history cleared"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-# ============================================================================
-# Health Check
-# ============================================================================
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "ai_ready": True,
-        "code_execution": "local"
-    })
-
-# ============================================================================
-# DSA Problems Endpoints
-# ============================================================================
-
-@app.route('/api/problems', methods=['GET'])
-def get_problems():
-    """Fetch all DSA problems with optional filters"""
-    try:
-        from supabase import create_client
-        import os
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        
-        if not supabase_url or not supabase_key:
-            return jsonify({"success": False, "error": "Supabase not configured"}), 500
-        
-        supabase = create_client(supabase_url, supabase_key)
-        
-        # Get query parameters for filtering
-        difficulty = request.args.get('difficulty')
-        category = request.args.get('category')
-        
-        query = supabase.table('problems').select('*')
-        
-        if difficulty:
-            query = query.eq('difficulty', difficulty)
-        if category:
-            query = query.eq('category', category)
-        
-        problems = query.execute()
-        return jsonify({"success": True, "problems": problems.data})
-        
-    except Exception as e:
-        print(f"[ERROR] Get problems failed: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/problems/<problem_id>', methods=['GET'])
-def get_problem(problem_id):
-    """Fetch a specific DSA problem with all details"""
-    try:
-        from supabase import create_client
-        import os
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        problem = supabase.table('problems').select('*').eq('id', problem_id).single().execute()
-        
-        if not problem.data:
-            return jsonify({"success": False, "error": "Problem not found"}), 404
-        
-        return jsonify({"success": True, "problem": problem.data})
-        
-    except Exception as e:
-        print(f"[ERROR] Get problem failed: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/problems/<problem_id>/hints', methods=['GET'])
-def get_hints(problem_id):
-    """Fetch all hints for a problem (nested JSON array)"""
-    try:
-        from supabase import create_client
-        import os
-        import json
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        hints_response = supabase.table('hints').select('*').eq('problem_id', problem_id).single().execute()
-        
-        if not hints_response.data:
-            return jsonify({"success": False, "error": "No hints found"}), 404
-        
-        hints_data = hints_response.data.get('hints_data', [])
-        
-        # Ensure hints_data is parsed if it's a string
-        if isinstance(hints_data, str):
-            hints_data = json.loads(hints_data)
-        
-        return jsonify({"success": True, "hints_data": hints_data})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/problems/<problem_id>/test-cases', methods=['GET'])
-def get_test_cases(problem_id):
-    """Fetch all test cases for a problem (public and private)"""
-    try:
-        from supabase import create_client
-        import os
-        import json
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        test_cases_response = supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
-        test_cases = test_cases_response.data
-        
-        # Separate public and private test cases
-        public_tests = []
-        private_tests = []
-        
-        for test_case in test_cases:
-            input_params = test_case.get('input_params', [])
-            # Ensure input_params is a list of test cases (nested array)
-            if isinstance(input_params, str):
-                input_params = json.loads(input_params)
-            
-            test_obj = {
-                'id': test_case['id'],
-                'input_params': input_params,
-                'is_hidden': test_case.get('is_hidden', False)
-            }
-            
-            if test_case.get('is_hidden', False):
-                private_tests.append(test_obj)
-            else:
-                public_tests.append(test_obj)
-        
-        return jsonify({
-            "success": True,
-            "public_test_cases": public_tests,
-            "private_test_cases": private_tests
-        })
-        
-    except Exception as e:
-        print(f"[ERROR] Get test cases failed: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+# Initialize SocketIO with your existing app
+socketio = SocketIO(app, cors_allowed_origins="*")
+# Store active sessions: { socket_id: PdbSession }
+debug_sessions = {}
 
 # ============================================================================
 # Code Execution Endpoints
@@ -491,15 +226,6 @@ def submit_code(problem_id):
                     'type': 'private' if test_case.get('is_hidden') else 'public'
                 })
         
-        # no need to add customs
-        # for cidx, custom_test in enumerate(custom_tests):
-        #     test_params = custom_test.get('input_params', [])
-        #     all_test_inputs.append(test_params)
-        #     test_metadata.append({
-        #         'test_id': f"custom_{cidx}",
-        #         'is_hidden': False,
-        #         'type': 'custom'
-        #     })
         
         total_tests = len(all_test_inputs)
         
@@ -634,80 +360,84 @@ def build_execution_code(user_code, language, template, input_params):
         return f"{user_code}\n\npublic static void main(String[] args) {{\n    // Test code\n}}"
     
     return user_code
+# ============================================================================
 
-@app.route('/api/code/complexity', methods=['POST'])
-def analyze_complexity():
-    """Analyze time and space complexity of code using AI"""
-    try:
-        data = request.get_json()
-        code = data.get('code', '')
-        language = data.get('language', 'python')
-        
-        if not code:
-            return jsonify({"success": False, "error": "No code provided"}), 400
-        
-        # Use AI to analyze complexity
-        prompt = f"""Analyze the following {language} code and provide:
-1. Time Complexity (Big O notation)
-2. Space Complexity (Big O notation)
-3. Brief explanation of your analysis
 
-Code:
-{code}
 
-Provide response in JSON format with keys: time_complexity, space_complexity, explanation. 
-NOTE: DO NOT ADD ANY TEXT IN YOUR RESPONSE ONLY GIVE A VALID JSON. GIVE EMPTY JSON IN EVENT OF AN ERROR"""
-        
-        complexity_analysis = ai_chatbot.get_response(prompt)
-        
-        return jsonify({
-            "success": True,
-            "analysis": complexity_analysis
-        })
-        
-    except Exception as e:
-        print(f"[ERROR] Complexity analysis failed: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+# --- New WebSocket Events for Debugging ---
+@socketio.on('start_debug')
+def handle_start_debug(data):
+    code = data.get('code') # User code
+    input_data = data.get('input', '') # Custom input or test case string
+    breakpoints = data.get('breakpoints', []) # List of line numbers to set breakpoints at
 
-@app.route('/', methods=['GET'])
-def index():
-    """Root endpoint with available endpoints"""
-    return jsonify({
-        "message": "CodeIDE Backend API",
-        "version": "1.0.0",
-        "execution_model": "Local (Direct execution via subprocess)",
-        "endpoints": {
-            "code": ["/api/code/run", "/api/code/complexity"],
-            "problems": ["/api/problems", "/api/problems/<id>", "/api/problems/<id>/test-cases", "/api/problems/<id>/hints", "/api/problems/<id>/run-tests", "/api/problems/<id>/submit"],
-            "ai": ["/api/ai/chat", "/api/ai/set-model", "/api/ai/analyze", "/api/ai/explain-failure", "/api/ai/clear"],
-            "health": ["/api/health"]
-        }
+    # print(f"[DEBUG] Input data: {input_data}")
+
+    # 1. Create a temp file for INPUTS (Critical for separation)
+    input_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    input_file.write(input_data)
+    input_file.close()
+    
+    # 2. Prepare the Code
+    # We inject a header to force the user code to read from our temp file
+    # instead of real stdin (which PDB needs).
+    # io_redirect = f"import sys; sys.stdin = open('{input_file.name}', 'r')\n"
+    io_redirect = ""
+    
+    # Combined: Redirect + User Code + (Optional) Driver
+    # Note: If you have a hidden driver, append it here too.
+    full_code = io_redirect + code 
+    print(f"[DEBUG] Starting debug session with code: {full_code}")
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        f.write(full_code)
+        script_path = f.name
+
+    # 3. Start Session
+    session = PdbSession(script_path)
+    session.start()
+    debug_sessions[request.sid] = session
+    
+    # 4. Set Breakpoints & Start
+    # The 'io_redirect' adds 1 line, so user breakpoints might need +1 offset 
+    # if you prepend it. If line offset is irrelevant, just send raw lines.
+    for bp in breakpoints:
+        session.send_command(f'b {bp + 1}') # +1 because of the import sys line
+        session.get_state() # Consume output
+
+    session.send_command('c') # Continue to first breakpoint
+    
+    # Send initial state
+    state = session.get_state()
+    vars_ = session.get_variables()
+    
+    emit('debug_update', {
+        'line': state['line_number'], # Frontend handles highlighting
+        'variables': vars_,
+        'output': state['raw_output']
     })
 
-# ============================================================================
-# Error Handlers
-# ============================================================================
+@socketio.on('step_over')
+def handle_step_over():
+    session = debug_sessions.get(request.sid)
+    if session:
+        session.send_command('n')
+        state = session.get_state()
+        emit('debug_update', {
+            'line': state['line_number'],
+            'variables': session.get_variables()
+        })
 
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({"error": "Endpoint not found"}), 404
+@socketio.on('disconnect')
+def cleanup_session():
+    if request.sid in debug_sessions:
+        debug_sessions[request.sid].stop()
+        del debug_sessions[request.sid]
 
-@app.errorhandler(500)
-def internal_error(e):
-    return jsonify({"error": "Internal server error"}), 500
-
-# ============================================================================
-# Main
-# ============================================================================
 
 if __name__ == '__main__':
-    print(f"[INFO] Starting CodeIDE Backend Server")
+    print(f"[INFO] Starting CodeIDE Execution Server")
     print(f"[INFO] Execution Model: Local (Direct subprocess execution)")
-    print(f"[INFO] AI Model: {Config.AI_MODEL}")
-    print(f"[INFO] Server running on {Config.HOST}:{Config.PORT}")
+    print(f"[INFO] Server running on {Config.HOST}:{Config.EXEPORT}")
     
-    app.run(
-        host=Config.HOST,
-        port=Config.PORT,
-        debug=Config.DEBUG
-    )
+    socketio.run(app, host=Config.HOST, port=Config.EXEPORT, debug=Config.DEBUG, allow_unsafe_werkzeug=True)

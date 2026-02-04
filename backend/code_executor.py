@@ -3,7 +3,10 @@ import tempfile
 import os
 import sys
 from pathlib import Path
+import judge0
+import json
 
+RAPID_API_KEY = os.environ.get("RAPID_API_KEY")
 class CodeExecutor:
     """Execute code in different programming languages"""
     
@@ -12,7 +15,73 @@ class CodeExecutor:
     
     # Max output length in characters
     MAX_OUTPUT = 10000
-    
+
+    def execute_with_judge0(code, language, input_data=None):
+        """
+        Executes code using the Judge0 API.
+        
+        Args:
+            code (str): The source code to execute.
+            language (str): The language name ('python', 'cpp', 'java', 'c').
+            input_data (str): The raw stdin string (CP style).
+            
+        Returns:
+            dict: The result from Judge0 execution.
+        """
+
+        # 1. Map string names to Judge0 Language IDs
+        # (IDs based on public Judge0 CE configuration)
+        LANGUAGE_MAP = {
+            'python': 71,  # Python 3.8.1
+            'cpp': 54,     # C++ (GCC 9.2.0)
+            'java': 62,    # Java (OpenJDK 13.0.1)
+            'c': 50        # C (GCC 9.2.0)
+        }
+        
+        # Normalize language string
+        lang_key = language.lower().strip()
+        
+        if lang_key not in LANGUAGE_MAP:
+            return {
+                "success": False, 
+                "error": f"Unsupported language for Judge0: {language}"
+            }
+
+        language_id = LANGUAGE_MAP[lang_key]
+
+        try:
+            # 2. Call the Judge0 SDK
+            # Passing 'stdin' is crucial for your CP-style input logic
+            
+            # client = judge0.RapidJudge0CE(api_key=RAPID_API_KEY)
+            subm = judge0.run(
+                # client=client,
+                source_code=code,
+                language_id=language_id,
+                stdin=input_data
+            )
+            response = json.loads(subm.model_dump_json())
+            
+            # 3. Parse Response (Standardizing output for your backend)
+            # Judge0 returns a dict with keys like 'stdout', 'stderr', 'compile_output'
+            
+            output = response.get('stdout', '')
+            error = response.get('stderr', '') or response.get('compile_output', '')
+            
+            # Determine success based on having output or explicitly check status inside response if available
+            success = bool(output) and not error
+            
+            return {
+                "success": success,
+                "output": output,
+                "error": error
+            }
+
+        except Exception as e:
+            return {
+                "success": False, 
+                "error": f"Judge0 API Error: {str(e)}"
+            }
     @staticmethod
     def execute(code, language, input_data=None):
         """

@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API_BASE_DB_URL = process.env.NEXT_PUBLIC_API_DB_URL || "http://localhost:5000"
+const API_BASE_EXE_URL = process.env.NEXT_PUBLIC_API_EXE_URL || "http://localhost:5001"
+const API_BASE_AI_URL = process.env.NEXT_PUBLIC_API_AI_URL || "http://localhost:5002"
 
 export interface ExecuteCodeRequest {
   code: string
@@ -78,7 +80,7 @@ export async function getTemplate(
 ): Promise<{ success: boolean; template?: CodeTemplate; error?: string }> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/api/problems/${problemId}/template?language=${language}`,
+      `${API_BASE_DB_URL}/api/problems/${problemId}/template?language=${language}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -96,7 +98,7 @@ export async function getTestCases(
 ): Promise<{ success: boolean; public_test_cases?: any[]; private_test_cases?: any[]; error?: string }> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/api/problems/${problemId}/test-cases`,
+      `${API_BASE_DB_URL}/api/problems/${problemId}/test-cases`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -164,7 +166,7 @@ export async function runTests(
   custom_tests?: any[]
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/run-tests`, {
+    const response = await fetch(`${API_BASE_EXE_URL}/api/problems/${problemId}/run-tests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language, custom_tests }),
@@ -188,7 +190,7 @@ export async function submitCode(
   custom_tests?: any[]
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; accepted?: boolean; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/submit`, {
+    const response = await fetch(`${API_BASE_EXE_URL}/api/problems/${problemId}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language, custom_tests }),
@@ -204,50 +206,50 @@ export async function submitCode(
     return { success: false, error: String(error) }
   }
 }
-// SSH Connection Management
-export async function connectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/ssh/connect`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    })
-    return await response.json()
-  } catch (error) {
-    console.error("[v0] SSH connect error:", error)
-    return { success: false, error: String(error) }
-  }
-}
+// // SSH Connection Management
+// export async function connectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
+//   try {
+//     const response = await fetch(`${API_BASE_URL}/api/ssh/connect`, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//     })
+//     return await response.json()
+//   } catch (error) {
+//     console.error("[v0] SSH connect error:", error)
+//     return { success: false, error: String(error) }
+//   }
+// }
 
-export async function disconnectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/ssh/disconnect`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    })
-    return await response.json()
-  } catch (error) {
-    console.error("[v0] SSH disconnect error:", error)
-    return { success: false, error: String(error) }
-  }
-}
+// export async function disconnectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
+//   try {
+//     const response = await fetch(`${API_BASE_URL}/api/ssh/disconnect`, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//     })
+//     return await response.json()
+//   } catch (error) {
+//     console.error("[v0] SSH disconnect error:", error)
+//     return { success: false, error: String(error) }
+//   }
+// }
 
-export async function checkSSHStatus(): Promise<{ connected: boolean; hostname?: string; username?: string }> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/ssh/status`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    })
-    return await response.json()
-  } catch (error) {
-    console.error("[v0] SSH status error:", error)
-    return { connected: false }
-  }
-}
+// export async function checkSSHStatus(): Promise<{ connected: boolean; hostname?: string; username?: string }> {
+//   try {
+//     const response = await fetch(`${API_BASE_URL}/api/ssh/status`, {
+//       method: "GET",
+//       headers: { "Content-Type": "application/json" },
+//     })
+//     return await response.json()
+//   } catch (error) {
+//     console.error("[v0] SSH status error:", error)
+//     return { connected: false }
+//   }
+// }
 
 // Execute code on remote server
 export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteCodeResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/code/run`, {
+    const response = await fetch(`${API_BASE_EXE_URL}/api/code/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -267,7 +269,7 @@ export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteC
 // Send message to AI chatbot
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
+    const response = await fetch(`${API_BASE_AI_URL}/api/ai/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -286,7 +288,7 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
 
 export async function setAIModel(model: string): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/ai/set-model`, {
+    const response = await fetch(`${API_BASE_AI_URL}/api/ai/set-model`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model }),
@@ -306,7 +308,7 @@ export async function setAIModel(model: string): Promise<{ success: boolean; mes
 // Analyze code for issues
 export async function analyzeCode(code: string, language: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/ai/analyze`, {
+    const response = await fetch(`${API_BASE_AI_URL}/api/ai/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language }),
@@ -321,7 +323,7 @@ export async function analyzeCode(code: string, language: string) {
 // Explain test case failure
 export async function explainTestFailure(expected: string, actual: string, input: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/ai/explain-failure`, {
+    const response = await fetch(`${API_BASE_AI_URL}/api/ai/explain-failure`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ expected, actual, input }),
@@ -336,7 +338,7 @@ export async function explainTestFailure(expected: string, actual: string, input
 // Clear chat history
 export async function clearChatHistory() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/ai/clear`, {
+    const response = await fetch(`${API_BASE_AI_URL}/api/ai/clear`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })
@@ -378,7 +380,7 @@ export async function getProblems(filters?: { difficulty?: string; category?: st
     if (filters?.difficulty) params.append('difficulty', filters.difficulty)
     if (filters?.category) params.append('category', filters.category)
     
-    const response = await fetch(`${API_BASE_URL}/api/problems${params.toString() ? `?${params}` : ''}`, {
+    const response = await fetch(`${API_BASE_DB_URL}/api/problems${params.toString() ? `?${params}` : ''}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     })
@@ -391,7 +393,7 @@ export async function getProblems(filters?: { difficulty?: string; category?: st
 
 export async function getProblem(problemId: string): Promise<{ success: boolean; problem?: Problem; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}`, {
+    const response = await fetch(`${API_BASE_DB_URL}/api/problems/${problemId}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     })
@@ -405,7 +407,7 @@ export async function getProblem(problemId: string): Promise<{ success: boolean;
 
 export async function getHints(problemId: string): Promise<{ success: boolean; hints?: Array<{ level: number; title: string; content: string }>; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/problems/${problemId}/hints`, {
+    const response = await fetch(`${API_BASE_DB_URL}/api/problems/${problemId}/hints`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     })
@@ -429,7 +431,7 @@ export async function getHints(problemId: string): Promise<{ success: boolean; h
 
 export async function analyzeComplexity(code: string, language: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/code/complexity`, {
+    const response = await fetch(`${API_BASE_AI_URL}/api/code/complexity`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language }),

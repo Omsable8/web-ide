@@ -4,14 +4,16 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X } from 'lucide-react'
+import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X, Bug } from 'lucide-react'
 import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate } from '@/lib/api'
 import { MonacoEditorInstance } from '@/components/monaco-editor-instance'
 import { AIChatbot } from '@/components/ai-chatbot'
 import { StructuredTestCases } from '@/components/structured-test-cases'
 import { SubmissionModal } from '@/components/submission-modal'
-import {DevPreferences} from '@/components/dev-preferences' // Import DevPreferences
-import {PerformanceAnalyzer} from '@/components/performance-analyzer' // Import PerformanceAnalyzer
+import { DebugWindow } from '@/components/debug-window'
+import { DevPreferences } from '@/components/dev-preferences'
+import { PerformanceAnalyzer } from '@/components/performance-analyzer'
+import { useDebugger } from '@/hooks/use-debugger'
 
 interface Problem {
   id: string
@@ -70,13 +72,17 @@ export default function ProblemDetailPage() {
   const [outputContext, setOutputContext] = useState<string>('')
   const [running, setRunning] = useState(false)
   const [testResults, setTestResults] = useState<TestResult[]>([])
-  const [submissionResult, setSubmissionResult] = useState<{ total: number|undefined; passed: number|undefined; accepted: boolean |undefined} | null>(null)
+  const [submissionResult, setSubmissionResult] = useState<{ total: number|undefined; passed: number|undefined; accepted: boolean } | null>(null)
   const [showSubmissionModal, setShowSubmissionModal] = useState(false)
   const [showDevPreferences, setShowDevPreferences] = useState(false)
   const [showPerformanceAnalyzer, setShowPerformanceAnalyzer] = useState(false)
   const [complexityAnalysis, setComplexityAnalysis] = useState<{ timeComplexity: string; spaceComplexity: string; explanation?: string } | null>(null)
   const [analyzingComplexity, setAnalyzingComplexity] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false) // Declare isSubmitting variable
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showDebugWindow, setShowDebugWindow] = useState(false)
+  const [isDebugging, setIsDebugging] = useState(false)
+
+  const { debugState, startDebugger, stepOver, stepInto, stopDebugger } = useDebugger()
 
   useEffect(() => {
     fetchProblemData()
@@ -135,6 +141,25 @@ export default function ProblemDetailPage() {
     } finally {
       setRunning(false)
     }
+  }
+
+  const handleDebug = async () => {
+    if (!code.trim()) return
+    setIsDebugging(true)
+    setShowDebugWindow(true)
+    try {
+      // Build stdin string from the first test case
+      const stdin = '1\n1\n2'  // Example: t=1, then input for 1 test case
+      startDebugger(code, stdin, [])
+    } catch (error) {
+      console.error('Failed to start debugger:', error)
+      setIsDebugging(false)
+    }
+  }
+
+  const handleStopDebug = () => {
+    stopDebugger()
+    setIsDebugging(false)
   }
 
   const handleAnalyzeComplexity = async () => {
@@ -235,6 +260,10 @@ export default function ProblemDetailPage() {
           <Button size="sm" onClick={handleAnalyzeComplexity} disabled={analyzingComplexity} variant="outline" className="gap-2 bg-transparent">
             <Zap className="w-4 h-4" />
             Complexity
+          </Button>
+          <Button size="sm" onClick={handleDebug} disabled={isDebugging} variant="outline" className="gap-2 bg-transparent">
+            <Bug className="w-4 h-4" />
+            Debug
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setShowDevPreferences(true)} className="text-foreground hover:text-accent">
             <Settings className="w-4 h-4" />
@@ -451,6 +480,17 @@ export default function ProblemDetailPage() {
           onClose={() => setShowSubmissionModal(false)}
         />
       )}
+
+      {/* Debug Window */}
+      <DebugWindow
+        isOpen={showDebugWindow}
+        onClose={() => setShowDebugWindow(false)}
+        debugState={debugState}
+        onStepOver={stepOver}
+        onStepInto={stepInto}
+        onStop={handleStopDebug}
+        isRunning={isDebugging}
+      />
       </div>
     </div>
   )
