@@ -1,45 +1,53 @@
+from functools import lru_cache
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, disconnect
 from config import Config
-
+import os
+from supabase import create_client
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
-# ============================================================================
-# Code Templates Endpoints
-# ============================================================================
+supabase = create_client(os.getenv('NEXT_PUBLIC_SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
 
-@app.route('/api/problems/<problem_id>/template', methods=['GET'])
-def get_template(problem_id):
-    """Fetch code template for a specific language"""
-    try:
-        from supabase import create_client
-        import os
-        
-        language = request.args.get('language', 'python')
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        template = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
-        
-        if not template.data:
-            return jsonify({"success": False, "error": "Template not found for this language"}), 404
-        
-        return jsonify({
-            "success": True,
-            "template": template.data
-        })
-        
-    except Exception as e:
-        print(f"[ERROR] Get template failed: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+# --- Cached Helper Functions ---
 
+@lru_cache(maxsize=30) # Increased size to handle (10 problems * 3 languages)
+def _fetch_template_from_db(problem_id, language):
+    """Helper to cache template based on BOTH ID and Language"""
+    print(f"[CACHE MISS] Fetching template for {problem_id} - {language}")
+    return supabase.table('code_templates').select('*')\
+        .eq('problem_id', problem_id).eq('language', language).single().execute()
+
+@lru_cache(maxsize=10) # Increased size to handle (10 problems * 3 languages)
+def _fetch_hints_from_db(problem_id):
+    """Helper to cache hints based on ID"""
+    print(f"[CACHE MISS] Fetching hints for {problem_id}")
+    return supabase.table('hints').select('*').eq('problem_id', problem_id).single().execute()
+
+@lru_cache(maxsize=20)
+def _fetch_testcases_from_db(problem_id):
+    print(f"[CACHE MISS] Fetching testcases {problem_id}")
+    return supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
+
+@lru_cache(maxsize=10)
+def _fetch_problem_from_db(problem_id):
+    print(f"[CACHE MISS] Fetching problem {problem_id}")
+    return supabase.table('problems').select('*').eq('id', problem_id).single().execute()
+
+@lru_cache(maxsize=10)
+def _fetch_problems_from_db(difficulty=None, category=None):
+    print(f"[CACHE MISS] Fetching problems with difficulty={difficulty}, category={category}")
+    query = supabase.table('problems').select('*')
+    if difficulty:
+        query = query.eq('difficulty', difficulty)
+    if category:
+        query = query.eq('category', category)
+    return query.execute()
 
 # ============================================================================
 # Health Check
@@ -62,47 +70,28 @@ def health_check():
 def get_problems():
     """Fetch all DSA problems with optional filters"""
     try:
-        from supabase import create_client
-        import os
         
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        
-        if not supabase_url or not supabase_key:
-            return jsonify({"success": False, "error": "Supabase not configured"}), 500
-        
-        supabase = create_client(supabase_url, supabase_key)
         
         # Get query parameters for filtering
         difficulty = request.args.get('difficulty')
         category = request.args.get('category')
         
-        query = supabase.table('problems').select('*')
-        
-        if difficulty:
-            query = query.eq('difficulty', difficulty)
-        if category:
-            query = query.eq('category', category)
-        
-        problems = query.execute()
+        problems = _fetch_problems_from_db(difficulty, category)
+
+        if not problems.data:
+            return jsonify({"success": False, "error": "Problem not found"}), 404
         return jsonify({"success": True, "problems": problems.data})
         
     except Exception as e:
         print(f"[ERROR] Get problems failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
-
+    
 @app.route('/api/problems/<problem_id>', methods=['GET'])
 def get_problem(problem_id):
     """Fetch a specific DSA problem with all details"""
     try:
-        from supabase import create_client
-        import os
         
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        problem = supabase.table('problems').select('*').eq('id', problem_id).single().execute()
+        problem = _fetch_problem_from_db(problem_id)
         
         if not problem.data:
             return jsonify({"success": False, "error": "Problem not found"}), 404
@@ -113,20 +102,12 @@ def get_problem(problem_id):
         print(f"[ERROR] Get problem failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-
 @app.route('/api/problems/<problem_id>/hints', methods=['GET'])
 def get_hints(problem_id):
     """Fetch all hints for a problem (nested JSON array)"""
     try:
-        from supabase import create_client
-        import os
-        import json
         
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        hints_response = supabase.table('hints').select('*').eq('problem_id', problem_id).single().execute()
+        hints_response = _fetch_hints_from_db(problem_id)
         
         if not hints_response.data:
             return jsonify({"success": False, "error": "No hints found"}), 404
@@ -140,21 +121,15 @@ def get_hints(problem_id):
         return jsonify({"success": True, "hints_data": hints_data})
         
     except Exception as e:
+        print(f"[ERROR] Get hints failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/problems/<problem_id>/test-cases', methods=['GET'])
 def get_test_cases(problem_id):
     """Fetch all test cases for a problem (public and private)"""
     try:
-        from supabase import create_client
-        import os
-        import json
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        test_cases_response = supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
+
+        test_cases_response = _fetch_testcases_from_db(problem_id)
         test_cases = test_cases_response.data
         
         # Separate public and private test cases
@@ -190,6 +165,31 @@ def get_test_cases(problem_id):
 
 
 
+# ============================================================================
+# Code Templates Endpoints
+# ============================================================================
+
+@app.route('/api/problems/<problem_id>/template', methods=['GET'])
+def get_template(problem_id):
+    """Fetch code template for a specific language"""
+    try:
+        
+        language = request.args.get('language', 'python')
+        
+        
+        template = _fetch_template_from_db(problem_id, language)
+        
+        if not template.data:
+            return jsonify({"success": False, "error": "Template not found for this language"}), 404
+        
+        return jsonify({
+            "success": True,
+            "template": template.data
+        })
+        
+    except Exception as e:
+        print(f"[ERROR] Get template failed: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/', methods=['GET'])
 def index():
