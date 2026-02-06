@@ -193,6 +193,7 @@ export const useDebugger = (options: UseDebuggerOptions = {}) => {
       log(`*** TERMINATED: ${data.status} ***`);
       setDebugState(prev => ({
         ...prev,
+        isConnected:false,
         isRunning: false,
         isPaused: false,
         line: null,

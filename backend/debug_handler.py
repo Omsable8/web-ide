@@ -47,17 +47,10 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Handle client disconnection and cleanup"""
+    """Client closed tab or lost internet"""
     sid = request.sid
     print(f"\n[SERVER] ✗ Client disconnected: {sid}")
-    
-    # Clean up session
-    adapter = session_manager.get_session(sid)
-    if adapter:
-        print(f"[SERVER] Cleaning up debug session for {sid}")
-        session_manager.stop_session(sid)
-    
-    leave_room(sid)
+    _perform_cleanup(sid, reason="client_disconnect")
 
 
 @socketio.on('start_debug')
@@ -127,8 +120,10 @@ def handle_start_debug(data):
                     socketio.emit('debug_continued', {}, room=sid)
                 
                 elif event_type == 'terminated':
-                    print(f"[SERVER] Program terminated")
-                    socketio.emit('debug_terminated', {'status': 'finished'}, room=sid)
+                    print(f"[SERVER] Program finished naturally")
+                    # We don't need 'force_disconnect' here if you want to keep variables visible.
+                    # But if you want a full reset:
+                    _perform_cleanup(sid, reason="program_terminated")
                     
             except Exception as e:
                 print(f"[SERVER] ERROR in event handler: {e}")
@@ -346,27 +341,40 @@ def handle_get_stack_trace():
 
 @socketio.on('stop_debug')
 def handle_stop_debug():
-    """Stop the debug session - CRITICAL: This must trigger disconnect"""
+    """User clicked 'Stop' button"""
     sid = request.sid
-    print(f"\n[SERVER] === STOP DEBUG REQUEST from {sid} ===")
-    
-    adapter = session_manager.get_session(sid)
-    if adapter:
-        print(f"[SERVER] Stopping debug session...")
-        session_manager.stop_session(sid)
-        print(f"[SERVER] Session stopped")
-    else:
-        print(f"[SERVER] No active session to stop")
-    
-    # Send terminated event
-    socketio.emit('debug_terminated', {'status': 'stopped'}, room=sid)
-    print(f"[SERVER] Sent debug_terminated event")
-    
-    # IMPORTANT: Explicitly disconnect the client
-    # This ensures clean session cleanup
-    # print(f"[SERVER] Disconnecting client {sid}")
-    # socketio.emit('force_disconnect', {}, room=sid)
+    print(f"\n[SERVER] Stop requested by user: {sid}")
+    _perform_cleanup(sid, reason="user_stop")
 
+def _perform_cleanup(sid, reason="unknown"):
+    """
+    Centralized cleanup handler.
+    """
+    adapter = session_manager.get_session(sid)
+    
+    # 1. Stop the Adapter resources
+    if adapter:
+        print(f"[SERVER] Cleaning up session {sid} (Reason: {reason})")
+        session_manager.stop_session(sid) 
+    else:
+        print(f"[SERVER] Cleanup requested for {sid}, but no session found.")
+
+    try:
+        socketio.emit('debug_terminated', {'reason': reason}, room=sid)
+        # socketio.emit('force_disconnect', {}, room=sid)
+    except Exception as e:
+        print(f"[SERVER] Error emitting cleanup events: {e}")
+
+    # 3. Clean up Flask-SocketIO room (CRITICAL FIX HERE)
+    try:
+        with app.app_context():
+            leave_room(sid)
+            print(f"[SERVER] Left room {sid}")
+    except RuntimeError:
+        # Fallback if we are somehow completely detached
+        print(f"[SERVER] Could not leave room (Context Error), but session is stopped.")
+    except Exception as e:
+        print(f"[SERVER] Error leaving room: {e}")
 
 def format_variables(variables: list) -> dict:
     """

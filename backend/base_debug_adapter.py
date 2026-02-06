@@ -2,6 +2,7 @@
 Base Debug Adapter with extensive debugging and proper DAP flow
 """
 import shutil
+import traceback
 import eventlet
 from eventlet.green import socket, subprocess, threading, time
 import json
@@ -99,6 +100,7 @@ class BaseDebugAdapter(ABC):
             self.log(f"Process started with PID: {self.process.pid}")
         except Exception as e:
             self.log(f"ERROR: Failed to start debug server: {e}")
+            traceback.print_exc()
             self.state = DebuggerState.DISCONNECTED
             return False
         
@@ -345,52 +347,61 @@ class BaseDebugAdapter(ABC):
             self.log(f"Evaluation result: {result}")
             return result
         return None
+    
     def stop(self):
-            """Stop the debug session and clean up"""
+            """
+            Master Cleanup Method: Stops process, closes sockets, deletes files.
+            Safe to call multiple times.
+            """
+            # 1. Idempotency Check
             if self.state == DebuggerState.TERMINATED:
                 return
-
-            self.log("=== Stopping Debug Session ===")
+            
+            self.log("=== Stopping Debug Session (Master Cleanup) ===")
             self.state = DebuggerState.TERMINATED
             
-            # FIX: Check if event is already sent to prevent AssertionError
+            # 2. Unblock any waiting threads
             if not self.stop_event.ready():
                 self.stop_event.send()
-            
-            # Disconnect from DAP
+            if not self.dap_initialized_event.ready():
+                self.dap_initialized_event.send(False) # Fail any pending inits
+
+            # 3. Graceful DAP Disconnect (Try-Catch everything)
             if self.sock:
                 try:
-                    # Use a short timeout so we don't hang if socket is already dead
-                    with eventlet.Timeout(0.5):
+                    with eventlet.Timeout(0.2):
                         self._send_request("disconnect", {"restart": False, "terminateDebuggee": True})
-                except:
-                    pass
-            
-            
-            # Kill process
+                except: pass
+                
+                try: self.sock.close()
+                except: pass
+                self.sock = None
+
+            # 4. Kill the Process (Hard Kill)
             if self.process:
                 try:
                     self.process.terminate()
                     eventlet.sleep(0.1)
                     if self.process.poll() is None:
                         self.process.kill()
-                except Exception as e:
-                    self.log(f"Error terminating process: {e}")
-            
-            # Kill listener greenlet
+                except: pass
+                self.process = None
+
+            # 5. Kill Listener Greenlet
             if self.listener_greenlet:
-                try:
-                    eventlet.kill(self.listener_greenlet)
-                except:
-                    pass
-            # FIX: Clean up Temporary Directory
+                try: eventlet.kill(self.listener_greenlet)
+                except: pass
+                self.listener_greenlet = None
+
+            # 6. Delete Temp Files (The most important part for you)
             if self.work_dir and os.path.exists(self.work_dir):
                 try:
-                    self.log(f"Cleaning up temp dir: {self.work_dir}")
-                    shutil.rmtree(self.work_dir)
+                    self.log(f"Deleting temp session: {self.work_dir}")
+                    shutil.rmtree(self.work_dir, ignore_errors=True)
                 except Exception as e:
-                    self.log(f"Error cleaning temp dir: {e}")
-            self.log("=== Debug Session Stopped ===")
+                    self.log(f"Warning: Failed to delete temp dir: {e}")
+            
+            self.log("=== Debug Session Destroyed ===")
     
     # ==================== Internal DAP Protocol ====================
     
@@ -618,7 +629,7 @@ class BaseDebugAdapter(ABC):
         # it means the process finished. We should signal termination.
         if not self.stop_event.ready():
             self.log("Socket disconnected unexpectedly. Assuming process finished.")
-            self.state = DebuggerState.TERMINATED
+            # self.state = DebuggerState.TERMINATED
             if self.on_event:
                 self.on_event('terminated', {})
         self.log("Message listener stopped")
@@ -687,7 +698,7 @@ class BaseDebugAdapter(ABC):
                 self.on_event('continued', {})
         
         elif event_name == "terminated":
-            self.state = DebuggerState.TERMINATED
+            # self.state = DebuggerState.TERMINATED
             self.log("*** TERMINATED ***")
             
             if self.on_event:

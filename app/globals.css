@@ -162,13 +162,16 @@
   }
 
   /* Debugger breakpoint and execution line styles */
-  .breakpoint-gutter-marker {
-    color: #ef4444;
-    cursor: pointer;
+  .codicon.codicon-circle-filled.breakpoint-red {
+    color: #ef4444 !important;
   }
 
   .execution-line-highlight {
-    background-color: rgba(234, 179, 8, 0.2);
-    border-left: 3px solid #eab308;
+    background-color: rgba(234, 179, 8, 0.2) !important;
+  }
+
+  /* Make glyph margin clickable cursor */
+  .monaco-editor .margin {
+    cursor: pointer;
   }
 }

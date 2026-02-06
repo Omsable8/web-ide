@@ -70,6 +70,7 @@ export function MonacoEditorInstance({
   const [executionOutput, setExecutionOutput] = useState<string>("")
   const editorContainerRef = useRef<HTMLDivElement>(null)
   const editorInstanceRef = useRef<any>(null)
+  const decorationIdsRef = useRef<string[]>([])
   const [userInput, setUserInput] = useState("")
   const [showInputPanel, setShowInputPanel] = useState(false)
   useEffect(() => {
@@ -128,6 +129,7 @@ export function MonacoEditorInstance({
               wordWrap: "off",
               padding: { top: 10, bottom: 10 },
               readOnly: readOnly,
+              glyphMargin: true,
             })
 
             editorInstanceRef.current = editor
@@ -182,18 +184,20 @@ export function MonacoEditorInstance({
   useEffect(() => {
     if (!editorInstanceRef.current) return
 
+    console.log("[v0] Updating decorations. Breakpoints:", breakpoints, "Current line:", currentExecutionLine)
+
     const decorations: any[] = []
 
-    // Add breakpoint decorations (red circles in gutter)
+    // Add breakpoint decorations (red circle in gutter)
+    // Using glyphMarginClassName with codicon classes that Monaco understands
     breakpoints.forEach((lineNum) => {
+      console.log("[v0] Adding decoration for breakpoint at line:", lineNum)
       decorations.push({
         range: new (window as any).monaco.Range(lineNum, 1, lineNum, 1),
         options: {
-          isWholeLine: true,
           glyphMargin: true,
-          glyphMarginClassName: 'codicon codicon-circle-filled',
+          glyphMarginClassName: 'codicon codicon-circle-filled breakpoint-red',
           glyphMarginHoverMessage: { value: 'Breakpoint' },
-          marginClassName: 'breakpoint-gutter-marker',
         },
       })
     })
@@ -211,11 +215,11 @@ export function MonacoEditorInstance({
       })
     }
 
-    // Update decorations
-    const model = editorInstanceRef.current.getModel()
-    if (model) {
-      ;(editorInstanceRef.current as any).deltaDecorations([], decorations)
-    }
+    // Update decorations - use deltaDecorations to replace old ones
+    console.log("[v0] Calling deltaDecorations with", decorations.length, "decorations")
+    const newIds = editorInstanceRef.current.deltaDecorations(decorationIdsRef.current, decorations)
+    decorationIdsRef.current = newIds
+    console.log("[v0] New decoration IDs:", newIds)
   }, [breakpoints, currentExecutionLine])
 
   // Handle gutter click for breakpoints
@@ -223,21 +227,33 @@ export function MonacoEditorInstance({
     if (!editorInstanceRef.current) return
 
     const editor = editorInstanceRef.current
-    editor.onMouseDown((e: any) => {
-      if (e.target?.type === 2) { // 2 = gutter area
+    const mouseDownListener = editor.onMouseDown((e: any) => {
+      console.log("[v0] Mouse event target type:", e.target?.type, "Position:", e.target?.position)
+      
+      // Check multiple possible gutter/margin click scenarios
+      // type === 2 is glyph margin, type === 1 is line number area
+      if ((e.target?.type === 1 || e.target?.type === 2) && e.target?.position?.lineNumber) {
         const line = e.target.position.lineNumber
+        console.log("[v0] Gutter clicked on line:", line, "Target type:", e.target.type)
+        
         const newBreakpoints = [...breakpoints]
         const index = newBreakpoints.indexOf(line)
 
         if (index > -1) {
           newBreakpoints.splice(index, 1) // Remove breakpoint
+          console.log("[v0] Removed breakpoint from line:", line, "New breakpoints:", newBreakpoints)
         } else {
           newBreakpoints.push(line) // Add breakpoint
+          console.log("[v0] Added breakpoint at line:", line, "New breakpoints:", newBreakpoints)
         }
 
         onBreakpointsChange?.(newBreakpoints.sort((a, b) => a - b))
       }
     })
+
+    return () => {
+      mouseDownListener?.dispose()
+    }
   }, [breakpoints, onBreakpointsChange])
 
   const handleLanguageChange = (newLang: "cpp" | "python" | "java") => {

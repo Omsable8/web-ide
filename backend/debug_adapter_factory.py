@@ -151,9 +151,7 @@ class DebugAdapterFactory:
             with open(input_file, 'w') as f:
                 f.write(input_data)
             
-            return PythonDebugAdapterWithInput(
-                source_file, port, input_file, on_event=on_event,work_dir=work_dir
-            )
+            return PythonDebugAdapterWithInput(source_file=source_file, port=port, input_file_path=input_file, on_event=on_event,work_dir=work_dir)
         
         return PythonDebugAdapter(source_file, port, on_event=on_event,work_dir=work_dir)
     
