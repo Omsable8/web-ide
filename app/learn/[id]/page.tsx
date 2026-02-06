@@ -172,6 +172,7 @@ export default function ProblemDetailPage() {
   }
 
   const handleStopDebug = () => {
+    setShowDebugWindow(false)
     stopDebugger()
     setIsDebugging(false)
     setCurrentExecutionLine(null)
@@ -423,7 +424,7 @@ export default function ProblemDetailPage() {
           {/* Debug Window at Bottom of Editor Panel */}
           <DebugWindow
             isOpen={showDebugWindow}
-            onClose={() => setShowDebugWindow(false)}
+            onClose={(handleStopDebug)}
             debugState={debugState}
             onStepOver={stepOver}
             onStepInto={stepInto}
