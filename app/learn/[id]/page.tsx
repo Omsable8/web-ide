@@ -81,12 +81,21 @@ export default function ProblemDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showDebugWindow, setShowDebugWindow] = useState(false)
   const [isDebugging, setIsDebugging] = useState(false)
+  const [breakpoints, setBreakpoints] = useState<number[]>([])
+  const [currentExecutionLine, setCurrentExecutionLine] = useState<number | null>(null)
 
-  const { debugState, startDebugger, stepOver, stepInto, stopDebugger } = useDebugger()
+  const { startDebugger, stopDebugger, debugState, stepOver, stepInto, stepOut, setBreakpoints: setDebuggerBreakpoints } = useDebugger()
 
   useEffect(() => {
     fetchProblemData()
   }, [problemId])
+
+  // Update execution line when debugState changes
+  useEffect(() => {
+    if (debugState.line) {
+      setCurrentExecutionLine(debugState.line)
+    }
+  }, [debugState.line])
 
   // Load template when language changes
   useEffect(() => {
@@ -150,7 +159,7 @@ export default function ProblemDetailPage() {
     try {
       // Build stdin string from the first test case
       const stdin = '1\n1\n2'  // Example: t=1, then input for 1 test case
-      startDebugger(code, stdin, [])
+      startDebugger(code, 'python', breakpoints, stdin)
     } catch (error) {
       console.error('Failed to start debugger:', error)
       setIsDebugging(false)
@@ -278,111 +287,113 @@ export default function ProblemDetailPage() {
       <DevPreferences isOpen={showDevPreferences} onClose={() => setShowDevPreferences(false)} />
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden gap-1 p-1 bg-background">
-        {/* Left Panel - Problem Description and Hints */}
-        <div className="w-96 flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0">
-          <div className="flex-1 overflow-y-auto p-4">
-            {/* Tabs */}
-            <div className="flex gap-2 mb-4 border-b border-border">
-              <button
-                onClick={() => setActiveTab('description')}
-                className={`px-3 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
-              >
-                Description
-              </button>
-              <button
-                onClick={() => setActiveTab('testcases')}
-                className={`px-3 py-2 text-sm font-medium ${activeTab === 'testcases' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
-              >
-                Test Cases
-              </button>
-            </div>
+      <div className="flex-1 flex overflow-hidden gap-1 p-1 bg-background flex-col">
+        <div className="flex-1 flex overflow-hidden gap-1">
+          {/* Left Panel - Problem Description and Hints */}
+          <div className="w-96 flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0">
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Tabs */}
+              <div className="flex gap-2 mb-4 border-b border-border">
+                <button
+                  onClick={() => setActiveTab('description')}
+                  className={`px-3 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+                >
+                  Description
+                </button>
+                <button
+                  onClick={() => setActiveTab('testcases')}
+                  className={`px-3 py-2 text-sm font-medium ${activeTab === 'testcases' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+                >
+                  Test Cases
+                </button>
+              </div>
 
-            {/* Description Tab */}
-            {activeTab === 'description' && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold text-accent mb-3">Description</h3>
-                  <div className="bg-background/50 p-4 rounded border border-border max-h-96 overflow-y-auto">
-                    <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{problem.description}</p>
+              {/* Description Tab */}
+              {activeTab === 'description' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold text-accent mb-3">Description</h3>
+                    <div className="bg-background/50 p-4 rounded border border-border max-h-96 overflow-y-auto">
+                      <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{problem.description}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-accent mb-2">Examples</h3>
+                    <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
+                      {problem.examples}
+                    </pre>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-accent mb-2">Constraints</h3>
+                    <p className="text-muted-foreground text-sm whitespace-pre-wrap">{problem.constraints}</p>
+                  </div>
+
+                  {/* Hints */}
+                  <div className="space-y-2 border-t border-border pt-4">
+                    {hints.map((hint) => (
+                      <div key={hint.level} className="bg-background/30 rounded border border-border">
+                        <button
+                          onClick={() => setShowHints((prev) => ({ ...prev, [hint.level]: !prev[hint.level] }))}
+                          className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Lightbulb className="w-4 h-4 text-accent" />
+                            <span className="font-medium text-sm">
+                              Hint {hint.level}: {hint.title}
+                            </span>
+                          </div>
+                          {showHints[hint.level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+
+                        {showHints[hint.level] && (
+                          <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
+                            {hint.content}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* AI Dynamic Help */}
+                  <div className="border-t border-border pt-4 mt-4">
+                    <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
+                    <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
+                    <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => setShowChatbot(true)}>
+                      Open AI Assistant
+                    </Button>
                   </div>
                 </div>
+              )}
 
-                <div>
-                  <h3 className="font-semibold text-accent mb-2">Examples</h3>
-                  <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
-                    {problem.examples}
-                  </pre>
+              {/* Test Cases Tab */}
+              {activeTab === 'testcases' && (
+                <div className="space-y-3">
+                  <StructuredTestCases
+                    testCases={testCases}
+                    testResults={testResults}
+                    customTestCases={customTestCases}
+                    onAddCustomTestCase={() => {
+                      if (testCases.length === 0) return
+                      setCustomTestCases([
+                        ...customTestCases,
+                        {
+                          id: `custom-${Date.now()}`,
+                          input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
+                        },
+                      ])
+                    }}
+                    onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
+                    onUpdateCustomTestCase={(index, testCase) => {
+                      const newCustom = [...customTestCases]
+                      newCustom[index] = testCase
+                      setCustomTestCases(newCustom)
+                    }}
+                  />
                 </div>
-
-                <div>
-                  <h3 className="font-semibold text-accent mb-2">Constraints</h3>
-                  <p className="text-muted-foreground text-sm whitespace-pre-wrap">{problem.constraints}</p>
-                </div>
-
-                {/* Hints */}
-                <div className="space-y-2 border-t border-border pt-4">
-                  {hints.map((hint) => (
-                    <div key={hint.level} className="bg-background/30 rounded border border-border">
-                      <button
-                        onClick={() => setShowHints((prev) => ({ ...prev, [hint.level]: !prev[hint.level] }))}
-                        className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Lightbulb className="w-4 h-4 text-accent" />
-                          <span className="font-medium text-sm">
-                            Hint {hint.level}: {hint.title}
-                          </span>
-                        </div>
-                        {showHints[hint.level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-
-                      {showHints[hint.level] && (
-                        <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
-                          {hint.content}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* AI Dynamic Help */}
-                <div className="border-t border-border pt-4 mt-4">
-                  <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
-                  <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
-                  <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => setShowChatbot(true)}>
-                    Open AI Assistant
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Test Cases Tab */}
-            {activeTab === 'testcases' && (
-              <div className="space-y-3">
-                <StructuredTestCases
-                  testCases={testCases}
-                  testResults={testResults}
-                  customTestCases={customTestCases}
-                  onAddCustomTestCase={() => {
-                    if (testCases.length === 0) return
-                    setCustomTestCases([
-                      ...customTestCases,
-                      {
-                        id: `custom-${Date.now()}`,
-                        input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
-                      },
-                    ])
-                  }}
-                  onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
-                  onUpdateCustomTestCase={(index, testCase) => {
-                    const newCustom = [...customTestCases]
-                    newCustom[index] = testCase
-                    setCustomTestCases(newCustom)
-                  }}
-                />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -398,6 +409,9 @@ export default function ProblemDetailPage() {
                 setCodeContext(newCode)
                 setOutputContext(output)
               }}
+              breakpoints={breakpoints}
+              onBreakpointsChange={setBreakpoints}
+              currentExecutionLine={currentExecutionLine}
               showRunButton={true}
             />
           </div>
@@ -473,25 +487,25 @@ export default function ProblemDetailPage() {
           </>
         )}
 
-      {/* Submission Results Modal */}
-      {showSubmissionModal && submissionResult && (
-        <SubmissionModal
-          result={submissionResult}
-          onClose={() => setShowSubmissionModal(false)}
-        />
-      )}
-
-      {/* Debug Window */}
+        {/* Submission Results Modal */}
+        {showSubmissionModal && submissionResult && (
+          <SubmissionModal
+            result={submissionResult}
+            onClose={() => setShowSubmissionModal(false)}
+          />
+        )}
+      </div>
+      {/* Debug Window at Bottom */}
       <DebugWindow
         isOpen={showDebugWindow}
         onClose={() => setShowDebugWindow(false)}
         debugState={debugState}
         onStepOver={stepOver}
         onStepInto={stepInto}
+        onStepOut={stepOut}
         onStop={handleStopDebug}
         isRunning={isDebugging}
       />
-      </div>
     </div>
   )
 }

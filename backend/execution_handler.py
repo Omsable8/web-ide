@@ -8,12 +8,13 @@ import sys
 import json
 import socketio
 import traceback
+import socket
 from flask import Flask, app, request, jsonify
 from flask_cors import CORS
 
 from config import Config
 from code_executor import CodeExecutor
-from debugger import PdbSession 
+from debugger import DAPSession 
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -21,8 +22,6 @@ app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
-# Initialize SocketIO with your existing app
-socketio = SocketIO(app, cors_allowed_origins="*")
 # Store active sessions: { socket_id: PdbSession }
 debug_sessions = {}
 
@@ -363,81 +362,9 @@ def build_execution_code(user_code, language, template, input_params):
 # ============================================================================
 
 
-
-# --- New WebSocket Events for Debugging ---
-@socketio.on('start_debug')
-def handle_start_debug(data):
-    code = data.get('code') # User code
-    input_data = data.get('input', '') # Custom input or test case string
-    breakpoints = data.get('breakpoints', []) # List of line numbers to set breakpoints at
-
-    # print(f"[DEBUG] Input data: {input_data}")
-
-    # 1. Create a temp file for INPUTS (Critical for separation)
-    input_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
-    input_file.write(input_data)
-    input_file.close()
-    
-    # 2. Prepare the Code
-    # We inject a header to force the user code to read from our temp file
-    # instead of real stdin (which PDB needs).
-    # io_redirect = f"import sys; sys.stdin = open('{input_file.name}', 'r')\n"
-    io_redirect = ""
-    
-    # Combined: Redirect + User Code + (Optional) Driver
-    # Note: If you have a hidden driver, append it here too.
-    full_code = io_redirect + code 
-    print(f"[DEBUG] Starting debug session with code: {full_code}")
-    
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write(full_code)
-        script_path = f.name
-
-    # 3. Start Session
-    session = PdbSession(script_path)
-    session.start()
-    debug_sessions[request.sid] = session
-    
-    # 4. Set Breakpoints & Start
-    # The 'io_redirect' adds 1 line, so user breakpoints might need +1 offset 
-    # if you prepend it. If line offset is irrelevant, just send raw lines.
-    for bp in breakpoints:
-        session.send_command(f'b {bp + 1}') # +1 because of the import sys line
-        session.get_state() # Consume output
-
-    session.send_command('c') # Continue to first breakpoint
-    
-    # Send initial state
-    state = session.get_state()
-    vars_ = session.get_variables()
-    
-    emit('debug_update', {
-        'line': state['line_number'], # Frontend handles highlighting
-        'variables': vars_,
-        'output': state['raw_output']
-    })
-
-@socketio.on('step_over')
-def handle_step_over():
-    session = debug_sessions.get(request.sid)
-    if session:
-        session.send_command('n')
-        state = session.get_state()
-        emit('debug_update', {
-            'line': state['line_number'],
-            'variables': session.get_variables()
-        })
-
-@socketio.on('disconnect')
-def cleanup_session():
-    if request.sid in debug_sessions:
-        debug_sessions[request.sid].stop()
-        del debug_sessions[request.sid]
-
-
 if __name__ == '__main__':
     print(f"[INFO] Starting CodeIDE Execution Server")
     print(f"[INFO] Execution Model: Local (Direct subprocess execution)")
     print(f"[INFO] Server running on {Config.HOST}:{Config.EXEPORT}")
     
-    socketio.run(app, host=Config.HOST, port=Config.EXEPORT, debug=Config.DEBUG, allow_unsafe_werkzeug=True)
+    app.run(host=Config.HOST, port=Config.EXEPORT, debug=Config.DEBUG)

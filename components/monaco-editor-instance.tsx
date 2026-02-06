@@ -46,6 +46,9 @@ interface MonacoEditorProps {
   onRun?: (code: string, output: string) => void
   showRunButton?: boolean
   readOnly?: boolean
+  breakpoints?: number[]
+  onBreakpointsChange?: (breakpoints: number[]) => void
+  currentExecutionLine?: number | null
 }
 
 export function MonacoEditorInstance({
@@ -56,6 +59,9 @@ export function MonacoEditorInstance({
   onRun,
   showRunButton = true,
   readOnly = false,
+  breakpoints = [],
+  onBreakpointsChange,
+  currentExecutionLine = null,
 }: MonacoEditorProps) {
   const [language, setLanguage] = useState<"cpp" | "python" | "java">(initialLanguage)
   const [code, setCode] = useState(initialCode || SAMPLE_CODE[initialLanguage])
@@ -171,6 +177,68 @@ export function MonacoEditorInstance({
       editorInstanceRef.current.setValue(newCode)
     }
   }, [initialCode])
+
+  // Update breakpoint decorations and execution line
+  useEffect(() => {
+    if (!editorInstanceRef.current) return
+
+    const decorations: any[] = []
+
+    // Add breakpoint decorations (red circles in gutter)
+    breakpoints.forEach((lineNum) => {
+      decorations.push({
+        range: new (window as any).monaco.Range(lineNum, 1, lineNum, 1),
+        options: {
+          isWholeLine: true,
+          glyphMargin: true,
+          glyphMarginClassName: 'codicon codicon-circle-filled',
+          glyphMarginHoverMessage: { value: 'Breakpoint' },
+          marginClassName: 'breakpoint-gutter-marker',
+        },
+      })
+    })
+
+    // Add execution line decoration (yellow highlight)
+    if (currentExecutionLine) {
+      decorations.push({
+        range: new (window as any).monaco.Range(currentExecutionLine, 1, currentExecutionLine, 1),
+        options: {
+          isWholeLine: true,
+          className: 'execution-line-highlight',
+          glyphMargin: true,
+          glyphMarginClassName: 'codicon codicon-debug-continue',
+        },
+      })
+    }
+
+    // Update decorations
+    const model = editorInstanceRef.current.getModel()
+    if (model) {
+      ;(editorInstanceRef.current as any).deltaDecorations([], decorations)
+    }
+  }, [breakpoints, currentExecutionLine])
+
+  // Handle gutter click for breakpoints
+  useEffect(() => {
+    if (!editorInstanceRef.current) return
+
+    const editor = editorInstanceRef.current
+    editor.onMouseDown((e: any) => {
+      if (e.target?.type === 2) { // 2 = gutter area
+        const line = e.target.position.lineNumber
+        const newBreakpoints = [...breakpoints]
+        const index = newBreakpoints.indexOf(line)
+
+        if (index > -1) {
+          newBreakpoints.splice(index, 1) // Remove breakpoint
+        } else {
+          newBreakpoints.push(line) // Add breakpoint
+        }
+
+        onBreakpointsChange?.(newBreakpoints.sort((a, b) => a - b))
+      }
+    })
+  }, [breakpoints, onBreakpointsChange])
 
   const handleLanguageChange = (newLang: "cpp" | "python" | "java") => {
     setLanguage(newLang)

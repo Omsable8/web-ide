@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { X, Play, Pause, StepForward, ChevronRight, ChevronDown } from 'lucide-react'
+import { X, Play, Pause, StepForward, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface DebugWindowProps {
   isOpen: boolean
@@ -11,10 +11,12 @@ interface DebugWindowProps {
     line: number | null
     variables: Record<string, string>
     output: string
+    stack: any[]
     isConnected: boolean
   }
   onStepOver: () => void
   onStepInto: () => void
+  onStepOut: () => void
   onStop: () => void
   isRunning: boolean
 }
@@ -25,6 +27,7 @@ export function DebugWindow({
   debugState,
   onStepOver,
   onStepInto,
+  onStepOut,
   onStop,
   isRunning,
 }: DebugWindowProps) {
@@ -44,15 +47,18 @@ export function DebugWindow({
   if (!isOpen) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-[300px] bg-background border-t border-border shadow-lg z-40 flex flex-col">
+    <div className="w-full h-80 bg-background border-t border-border shadow-lg z-40 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border">
+      <div className="flex items-center justify-between p-3 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${debugState.isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
           <span className="text-sm font-semibold">Debug Console</span>
           <span className="text-xs text-muted-foreground ml-2">
             {debugState.isConnected ? 'Connected' : 'Disconnected'}
           </span>
+          {debugState.line !== null && (
+            <span className="text-xs text-accent ml-4">Line {debugState.line}</span>
+          )}
         </div>
 
         {/* Debug Controls */}
@@ -79,6 +85,18 @@ export function DebugWindow({
           >
             <ChevronRight className="w-4 h-4" />
             Step Into
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onStepOut}
+            disabled={!isRunning}
+            className="gap-2"
+            title="Step Out (Shift+F11)"
+          >
+            <ChevronUp className="w-4 h-4" />
+            Step Out
           </Button>
 
           <Button

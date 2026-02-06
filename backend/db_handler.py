@@ -226,4 +226,4 @@ if __name__ == '__main__':
     print(f"[INFO] Starting CodeIDE DB Server")
     print(f"[INFO] Server running on {Config.HOST}:{Config.DBPORT}")
     
-    app.run(host=Config.HOST, port=Config.DBPORT, debug=Config.DEBUG)
+    app.run(host=Config.HOST, port=Config.DBPORT, debug=Config.DEBUG, use_reloader=False)
