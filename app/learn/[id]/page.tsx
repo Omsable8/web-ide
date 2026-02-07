@@ -164,7 +164,7 @@ export default function ProblemDetailPage() {
     try {
       // Build stdin string from the first test case
       const stdin = ''  // Example: t=1, then input for 1 test case
-      startDebugger(code, 'python', breakpoints, stdin)
+      startDebugger(code, language, breakpoints, stdin)
     } catch (error) {
       console.error('Failed to start debugger:', error)
       setIsDebugging(false)

@@ -151,7 +151,7 @@ class DebugAdapterFactory:
             with open(input_file, 'w') as f:
                 f.write(input_data)
             
-            return PythonDebugAdapterWithInput(source_file=source_file, port=port, input_file_path=input_file, on_event=on_event,work_dir=work_dir)
+            return PythonDebugAdapterWithInput(file_path=source_file, port=port, input_file_path=input_file,python_path='python3', on_event=on_event,work_dir=work_dir)
         
         return PythonDebugAdapter(source_file, port, on_event=on_event,work_dir=work_dir)
     
@@ -164,7 +164,7 @@ class DebugAdapterFactory:
             code = JavaDebugAdapterHelper.wrap_with_main(code)
         
         # Create source file
-        source_file = os.path.join(work_dir, 'Solution.java')
+        source_file = os.path.join(work_dir, 'Main.java')
         with open(source_file, 'w') as f:
             f.write(code)
         

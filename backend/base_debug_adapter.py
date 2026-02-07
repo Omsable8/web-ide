@@ -724,6 +724,9 @@ class BaseDebugAdapter(ABC):
         elif event_name == "debugpyWaitingForServer":
             # FIX: Explicitly ignore this to prevent log spam
             pass
+        elif event_name == "module":
+            # FIX: Explicitly ignore this to prevent log spam
+            pass
 
         elif event_name == "process":
             # This is normal; it just tells us the start method/PID

@@ -68,7 +68,13 @@ class PythonDebugAdapterWithInput(PythonDebugAdapter):
                  input_file_path: Optional[str] = None,
                  python_path: str = 'python3',
                  on_event=None, work_dir: Optional[str] = None):
-        super().__init__(file_path, port, on_event, work_dir)
+        super().__init__(
+            file_path, 
+            port, 
+            python_path=python_path, 
+            on_event=on_event, 
+            work_dir=work_dir
+        )
         self.input_file_path = input_file_path
     
     def _start_debug_server(self) -> subprocess.Popen:

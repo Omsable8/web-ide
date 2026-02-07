@@ -355,4 +355,4 @@ if __name__ == '__main__':
     print(f"[INFO] Execution Model: Local (Direct subprocess execution)")
     print(f"[INFO] Server running on {Config.HOST}:{Config.EXEPORT}")
     
-    app.run(host=Config.HOST, port=Config.EXEPORT, debug=Config.DEBUG)
+    app.run(host=Config.HOST, port=Config.EXEPORT, debug=Config.DEBUG, use_reloader=False)
