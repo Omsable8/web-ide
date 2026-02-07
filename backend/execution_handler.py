@@ -1,20 +1,10 @@
-import eventlet
-eventlet.monkey_patch()
-
-from flask_socketio import SocketIO, emit, disconnect
-import tempfile
-import os
-import sys
 import json
-import socketio
 import traceback
-import socket
 from flask import Flask, app, request, jsonify
 from flask_cors import CORS
 
 from config import Config
 from code_executor import CodeExecutor
-from debugger import DAPSession 
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -22,8 +12,6 @@ app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
-# Store active sessions: { socket_id: PdbSession }
-debug_sessions = {}
 
 # ============================================================================
 # Code Execution Endpoints

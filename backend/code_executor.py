@@ -3,6 +3,7 @@ import tempfile
 import os
 import sys
 from pathlib import Path
+import traceback
 import judge0
 import json
 
@@ -15,6 +16,15 @@ class CodeExecutor:
     
     # Max output length in characters
     MAX_OUTPUT = 10000
+    # User to run untrusted code as
+    RUN_USER = "code_runner" 
+
+    @staticmethod
+    def _get_secure_cmd(cmd_list):
+        """
+        Wraps the command to run as the restricted user using sudo.
+        """
+        return ['sudo', '-u', CodeExecutor.RUN_USER] + cmd_list
 
     def execute_with_judge0(code, language, input_data=None):
         """
@@ -123,15 +133,22 @@ class CodeExecutor:
                 f.write(code)
                 temp_file = f.name
             
+            # CRITICAL: Allow code_runner to read this file
+            os.chmod(temp_file, 0o644)
             # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
             try:
+                # Wrap command with sudo
+                # Note: Using 'python3' instead of sys.executable to ensure we use system python
+                # if the virtualenv is not accessible by code_runner.
+                cmd = CodeExecutor._get_secure_cmd(['python3', temp_file])
                 # Run Python code
                 result = subprocess.run(
-                    [sys.executable, temp_file],
+                    cmd,
                     capture_output=True,
                     text=True,
                     timeout=CodeExecutor.TIMEOUT,
-                    input=input_data  # Pass input data to stdin
+                    input=input_data,  # Pass input data to stdin
+                    cwd='/tmp'
                 )
                 
                 output = result.stdout[:CodeExecutor.MAX_OUTPUT]
@@ -176,13 +193,20 @@ class CodeExecutor:
                     error = compile_result.stderr[:CodeExecutor.MAX_OUTPUT]
                     return {"success": False, "error": f"Compilation error:\n{error}"}
                 
+                # prepare for Execution
+                # Grant execution permissions to everyone (so code_runner can run it)
+                os.chmod(temp_out, 0o755)
+                
+                # 3. Run (As code_runner - Restricted)
+                cmd = CodeExecutor._get_secure_cmd([temp_out])
                 # Run compiled code
                 run_result = subprocess.run(
-                    [temp_out],
+                    cmd,
                     capture_output=True,
                     text=True,
                     timeout=CodeExecutor.TIMEOUT,
-                    input=input_data
+                    input=input_data,
+                    cwd='/tmp'
                 )
                 
                 output = run_result.stdout[:CodeExecutor.MAX_OUTPUT]
@@ -211,7 +235,7 @@ class CodeExecutor:
         try:
             # Create temporary directory for Java files
             temp_dir = tempfile.mkdtemp()
-            
+            os.chmod(temp_dir, 0o755)
             # Java requires specific class naming
             # Extract class name from code or use default
             # class_name = CodeExecutor._extract_java_class_name(code)
@@ -227,12 +251,13 @@ class CodeExecutor:
             #     code = f'public class {class_name} {{\n{code}\n}}'
             
             temp_java = os.path.join(temp_dir, f'{class_name}.java')
-            
+            # CRITICAL: Allow code_runner to read the source file
             try:
                 # Write Java file
                 with open(temp_java, 'w') as f:
                     f.write(code)
                 
+                os.chmod(temp_java, 0o644)
                 # Compile Java code
                 compile_result = subprocess.run(
                     ['javac', temp_java],
@@ -246,13 +271,21 @@ class CodeExecutor:
                     error = compile_result.stderr[:CodeExecutor.MAX_OUTPUT]
                     return {"success": False, "error": f"Compilation error:\n{error}"}
                 
+                # 2. Run (As code_runner)
+                # Ensure generated .class files are readable
+                for root, dirs, files in os.walk(temp_dir):
+                    for f in files: os.chmod(os.path.join(root, f), 0o644)
+
+                cmd = CodeExecutor._get_secure_cmd(['java', '-cp', temp_dir, class_name])
+
                 # Run compiled Java code
                 run_result = subprocess.run(
-                    ['java', '-cp', temp_dir, class_name],
+                    cmd,
                     capture_output=True,
                     text=True,
                     timeout=CodeExecutor.TIMEOUT,
-                    input=input_data
+                    input=input_data,
+                    cwd=temp_dir
                 )
                 
                 output = run_result.stdout[:CodeExecutor.MAX_OUTPUT]
@@ -270,6 +303,7 @@ class CodeExecutor:
                     shutil.rmtree(temp_dir)
                     
         except Exception as e:
+            traceback.print_exc()
             return {"success": False, "error": str(e)}
     
     @staticmethod
