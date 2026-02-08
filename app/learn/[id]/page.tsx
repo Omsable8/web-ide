@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -53,6 +53,39 @@ interface TestResult {
   error?: string
 }
 
+// Helper to handle SessionStorage caching
+// TTL (Time To Live) defaults to 60 minutes
+async function fetchWithCache<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  ttl: number = 60 * 60 * 1000
+): Promise<T | null> {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const cached = sessionStorage.getItem(key)
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached)
+      if (Date.now() - timestamp < ttl) {
+        return data as T
+      }
+    }
+  } catch (e) {
+    console.warn("Session storage read error:", e)
+  }
+
+  const data = await fetcher()
+  
+  if (data) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }))
+    } catch (e) {
+      console.warn("Session storage write error:", e)
+    }
+  }
+  
+  return data
+}
 export default function ProblemDetailPage() {
   const params = useParams()
   const problemId = params.id as string
@@ -102,15 +135,61 @@ export default function ProblemDetailPage() {
     }
   }, [debugState.line])
 
-  // Load template when language changes
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  
+  // Ref to hold the latest code for the interval to read without re-triggering
+  const codeRef = useRef(code)
+  
+  // Keep codeRef in sync
   useEffect(() => {
-    const loadTemplate = async () => {
-      const templateRes = await getTemplate(problemId, language)
-      if (templateRes.success && templateRes.template?.template_code) {
-        setCode(templateRes.template.template_code)
+    codeRef.current = code
+  }, [code])
+
+  // LOGIC: Load Code (Storage -> Cache -> DB) & Setup Auto-Save
+  useEffect(() => {
+    const storageKey = `autosave_${problemId}_${language}`
+    
+    const loadCode = async () => {
+      // 1. Try LocalStorage First (User's draft)
+      const savedCode = localStorage.getItem(storageKey)
+      
+      if (savedCode) {
+        console.log(`[AutoSave] Restored from local storage for ${language}`)
+        setCode(savedCode)
+        return
+      }
+
+      // 2. If no draft, fetch Template (Cache -> DB)
+      const cacheKey = `template_${problemId}_${language}`
+      const templateCode = await fetchWithCache(
+        cacheKey,
+        async () => {
+          const templateRes = await getTemplate(problemId, language)
+          return (templateRes.success && templateRes.template?.template_code) 
+            ? templateRes.template.template_code 
+            : ""
+        }
+      )
+
+      if (templateCode) {
+        setCode(templateCode)
       }
     }
-    loadTemplate()
+
+    loadCode()
+
+    // 3. Setup Auto-Save Interval (Every 2 minutes)
+    const saveInterval = setInterval(() => {
+      if (codeRef.current) {
+        localStorage.setItem(storageKey, codeRef.current)
+        setLastSaved(new Date())
+        console.log(`[AutoSave] Saved draft for ${language} at ${new Date().toLocaleTimeString()}`)
+      }
+    }, 2 * 60 * 1000) // 2 minutes
+
+    // Cleanup on language change or unmount
+    return () => clearInterval(saveInterval)
+
   }, [language, problemId])
 
   const handleRunTests = async () => {
@@ -207,20 +286,35 @@ export default function ProblemDetailPage() {
   const fetchProblemData = async () => {
     setLoading(true)
     try {
-      const problemRes = await getProblem(problemId)
-      if (problemRes.success) {
-        setProblem(problemRes.problem)
-      }
+      // 1. Fetch Problem with Cache
+      const problemData = await fetchWithCache(
+        `problem_${problemId}`,
+        async () => {
+          const problemRes = await getProblem(problemId)
+          return problemRes.success ? problemRes.problem : null
+        }
+      )
+      if (problemData) setProblem(problemData)
 
-      const testCasesRes = await getTestCases(problemId)
-      if (testCasesRes.success && testCasesRes.public_test_cases) {
-        setTestCases(testCasesRes.public_test_cases)
-      }
+      // 2. Fetch Test Cases with Cache
+      const testCasesData = await fetchWithCache(
+        `testcases_${problemId}`,
+        async () => {
+          const testCasesRes = await getTestCases(problemId)
+          return testCasesRes.success ? testCasesRes.public_test_cases : []
+        }
+      )
+      if (testCasesData) setTestCases(testCasesData)
 
-      const hintsRes = await getHints(problemId)
-      if (hintsRes.success && hintsRes.hints) {
-        setHints(hintsRes.hints)
-      }
+      // 3. Fetch Hints with Cache
+      const hintsData = await fetchWithCache(
+        `hints_${problemId}`,
+        async () => {
+          const hintsRes = await getHints(problemId)
+          return hintsRes.success ? hintsRes.hints : []
+        }
+      )
+      if (hintsData) setHints(hintsData)
     } catch (error) {
       console.error('[v0] Failed to load problem:', error)
     } finally {

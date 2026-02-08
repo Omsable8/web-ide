@@ -63,6 +63,8 @@ export function MonacoEditorInstance({
   onBreakpointsChange,
   currentExecutionLine = null,
 }: MonacoEditorProps) {
+  // ADD THIS: Track if editor is fully loaded
+  const [isEditorReady, setIsEditorReady] = useState(false)
   const [language, setLanguage] = useState<"cpp" | "python" | "java">(initialLanguage)
   const [code, setCode] = useState(initialCode || SAMPLE_CODE[initialLanguage])
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
@@ -133,7 +135,8 @@ export function MonacoEditorInstance({
             })
 
             editorInstanceRef.current = editor
-
+            // ADD THIS: Signal that editor is ready
+            setIsEditorReady(true)
             editor.onDidChangeModelContent(() => {
               const newCode = editor.getValue()
               setCode(newCode)
@@ -178,7 +181,7 @@ export function MonacoEditorInstance({
       setCode(newCode)
       editorInstanceRef.current.setValue(newCode)
     }
-  }, [initialCode])
+  }, [initialCode,isEditorReady])
 
   // Update breakpoint decorations and execution line
   useEffect(() => {
