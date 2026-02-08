@@ -7,19 +7,17 @@ eventlet.monkey_patch()
 from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
-import tempfile
-import os
-
+from config import Config
 from debug_adapter_factory import DebugSessionManager, DebugAdapterFactory, Language
 from base_debug_adapter import DebuggerState
 
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}}, supports_credentials=True)
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', logger=True, engineio_logger=False)
+socketio = SocketIO(app, cors_allowed_origins=Config.CORS_ORIGINS, async_mode='eventlet', logger=True, engineio_logger=False)
 
 # Global session manager
 session_manager = DebugSessionManager(port_range_start=5678, port_range_end=6678)
@@ -410,9 +408,9 @@ if __name__ == '__main__':
     try:
         socketio.run(
             app,
-            host='0.0.0.0',
-            port=5003,
-            debug=True,
+            host=Config.HOST,
+            port=Config.DEBUGPORT,
+            debug=Config.DEBUG,
             allow_unsafe_werkzeug=True,
             use_reloader=False
         )

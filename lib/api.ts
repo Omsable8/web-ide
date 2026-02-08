@@ -1,6 +1,6 @@
-const API_BASE_DB_URL = process.env.NEXT_PUBLIC_API_DB_URL || "http://localhost:5000"
-const API_BASE_EXE_URL = process.env.NEXT_PUBLIC_API_EXE_URL || "http://localhost:5001"
-const API_BASE_AI_URL = process.env.NEXT_PUBLIC_API_AI_URL || "http://localhost:5002"
+const API_BASE_DB_URL = process.env.NEXT_PUBLIC_API_DB_URL || "http://192.168.0.107:5000"
+const API_BASE_EXE_URL = process.env.NEXT_PUBLIC_API_EXE_URL || "http://192.168.0.107:5001"
+const API_BASE_AI_URL = process.env.NEXT_PUBLIC_API_AI_URL || "http://192.168.0.107:5002"
 
 export interface ExecuteCodeRequest {
   code: string
@@ -206,45 +206,6 @@ export async function submitCode(
     return { success: false, error: String(error) }
   }
 }
-// // SSH Connection Management
-// export async function connectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
-//   try {
-//     const response = await fetch(`${API_BASE_URL}/api/ssh/connect`, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//     })
-//     return await response.json()
-//   } catch (error) {
-//     console.error("[v0] SSH connect error:", error)
-//     return { success: false, error: String(error) }
-//   }
-// }
-
-// export async function disconnectSSH(): Promise<{ success: boolean; message?: string; error?: string }> {
-//   try {
-//     const response = await fetch(`${API_BASE_URL}/api/ssh/disconnect`, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//     })
-//     return await response.json()
-//   } catch (error) {
-//     console.error("[v0] SSH disconnect error:", error)
-//     return { success: false, error: String(error) }
-//   }
-// }
-
-// export async function checkSSHStatus(): Promise<{ connected: boolean; hostname?: string; username?: string }> {
-//   try {
-//     const response = await fetch(`${API_BASE_URL}/api/ssh/status`, {
-//       method: "GET",
-//       headers: { "Content-Type": "application/json" },
-//     })
-//     return await response.json()
-//   } catch (error) {
-//     console.error("[v0] SSH status error:", error)
-//     return { connected: false }
-//   }
-// }
 
 // Execute code on remote server
 export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteCodeResponse> {

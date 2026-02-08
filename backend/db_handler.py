@@ -11,7 +11,6 @@ app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
-
 supabase = create_client(os.getenv('NEXT_PUBLIC_SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
 
 # --- Cached Helper Functions ---

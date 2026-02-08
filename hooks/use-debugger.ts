@@ -50,7 +50,7 @@ interface UseDebuggerOptions {
   debug?: boolean;
 }
 
-const DEFAULT_SERVER_URL = 'http://localhost:5003';
+const DEFAULT_SERVER_URL = process.env.NEXT_PUBLIC_API_DEBUG_URL || "http://192.168.0.107:5003";
 
 export const useDebugger = (options: UseDebuggerOptions = {}) => {
   const {

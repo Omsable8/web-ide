@@ -11,16 +11,17 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     HOST = os.getenv('HOST', '0.0.0.0')
-    DBPORT = int(os.getenv('PORT', 5000))
-    EXEPORT = int(os.getenv('PORT', 5001))
-    AIPORT = int(os.getenv('PORT', 5002))
+    DBPORT = int(os.getenv('DBPORT', 5000))
+    EXEPORT = int(os.getenv('EXEPORT', 5001))
+    AIPORT = int(os.getenv('AIPORT', 5002))
+    DEBUGPORT = int(os.getenv('DEBUGPORT', 5003))
     
     # AI settings
     AI_MODEL = os.getenv('AI_MODEL', 'gpt-4')
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
     
     # CORS settings
-    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',')
     
     @staticmethod
     def validate():
