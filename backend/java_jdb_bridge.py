@@ -7,7 +7,7 @@ import threading
 import time
 
 class JdbBridge:
-    def __init__(self, port, main_class, classpath):
+    def __init__(self, port, main_class, classpath, entry_class=None):
         self.current_line = 1
         self.suppress_logs = False
         self.variables_cache = {}
@@ -15,6 +15,9 @@ class JdbBridge:
         self.port = port
         self.main_class = main_class
         self.classpath = classpath
+        # Use entry_class if provided, otherwise default to main_class
+        self.entry_class = entry_class if entry_class else main_class
+        
         self.jdb_process = None
         self.client_sock = None
         self.breakpoints = []
@@ -23,7 +26,7 @@ class JdbBridge:
     def start(self):
         # 1. Start JDB (The actual debugger)
         # We tell it to run the class with the given classpath
-        cmd = ['jdb', '-classpath', self.classpath, self.main_class]
+        cmd = ['jdb', '-classpath', self.classpath, self.entry_class]
         print(f"[BRIDGE] Starting JDB: {' '.join(cmd)}")
         
         self.jdb_process = subprocess.Popen(
@@ -32,7 +35,9 @@ class JdbBridge:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=0 # Unbuffered
+            bufsize=0,# Unbuffered
+            # ADD THIS LINE: Run JDB inside the session folder so it finds input.txt
+            cwd=self.classpath
         )
         
         # 2. Start Socket Server (To listen to your Adapter)
@@ -251,7 +256,9 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--classpath", required=True)
     parser.add_argument("--main", required=True)
+    # Add this new arg
+    parser.add_argument("--entry-class", required=False)
     args = parser.parse_args()
     
-    bridge = JdbBridge(args.port, args.main, args.classpath)
+    bridge = JdbBridge(args.port, args.main, args.classpath, args.entry_class)
     bridge.start()

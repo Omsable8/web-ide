@@ -168,6 +168,10 @@ class DebugAdapterFactory:
         with open(source_file, 'w') as f:
             f.write(code)
         
+        input_file = os.path.join(work_dir, 'input.txt')
+        with open(input_file, 'w') as f:
+            f.write(input_data)
+        
         # Create adapter and compile
         adapter = JavaDebugAdapterHelper.create_from_source(
             java_source_file= source_file, port= port, work_dir=work_dir, on_event=on_event
