@@ -170,7 +170,7 @@ class DebugAdapterFactory:
         
         # Create adapter and compile
         adapter = JavaDebugAdapterHelper.create_from_source(
-            source_file, port, work_dir, on_event
+            java_source_file= source_file, port= port, work_dir=work_dir, on_event=on_event
         )
         
         return adapter

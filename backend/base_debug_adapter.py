@@ -49,6 +49,7 @@ class BaseDebugAdapter(ABC):
         self.port = port
         self.on_event = on_event
         self.work_dir = work_dir
+        self._resources_cleaned_up = False
         # Connection
         self.process: Optional[subprocess.Popen] = None
         self.sock: Optional[socket.socket] = None
@@ -71,7 +72,7 @@ class BaseDebugAdapter(ABC):
         self.current_frame_id: Optional[int] = None
         
         # Debug flag
-        self.debug = True
+        self.debug = False
     
     def log(self, msg: str):
         """Debug logging"""
@@ -353,10 +354,12 @@ class BaseDebugAdapter(ABC):
             Master Cleanup Method: Stops process, closes sockets, deletes files.
             Safe to call multiple times.
             """
-            # 1. Idempotency Check
-            if self.state == DebuggerState.TERMINATED:
+            # 1. NEW Idempotency Check (Checks cleanup status, NOT logical state)
+            if self._resources_cleaned_up:
                 return
             
+            self._resources_cleaned_up = True
+                
             self.log("=== Stopping Debug Session (Master Cleanup) ===")
             self.state = DebuggerState.TERMINATED
             

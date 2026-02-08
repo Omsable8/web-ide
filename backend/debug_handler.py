@@ -365,9 +365,8 @@ def _perform_cleanup(sid, reason="unknown"):
 
     # 3. Clean up Flask-SocketIO room (CRITICAL FIX HERE)
     try:
-        with app.app_context():
-            leave_room(sid)
-            print(f"[SERVER] Left room {sid}")
+        socketio.server.leave_room(sid, sid, '/')
+        print(f"[SERVER] Left room {sid}")
     except RuntimeError:
         # Fallback if we are somehow completely detached
         print(f"[SERVER] Could not leave room (Context Error), but session is stopped.")
