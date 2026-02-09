@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Play, Loader2 } from "lucide-react"
+import { Play, Loader2, RotateCcw } from "lucide-react"
 import { executeCode } from "@/lib/api"
 
 // HAVE TO REPLACE THIS WITH OTHER BRANCH SAMPLE CODES!!
@@ -49,6 +49,7 @@ interface MonacoEditorProps {
   breakpoints?: number[]
   onBreakpointsChange?: (breakpoints: number[]) => void
   currentExecutionLine?: number | null
+  onResetCode?: () => Promise<void>
 }
 
 export function MonacoEditorInstance({
@@ -62,6 +63,7 @@ export function MonacoEditorInstance({
   breakpoints = [],
   onBreakpointsChange,
   currentExecutionLine = null,
+  onResetCode,
 }: MonacoEditorProps) {
   // ADD THIS: Track if editor is fully loaded
   const [isEditorReady, setIsEditorReady] = useState(false)
@@ -69,6 +71,7 @@ export function MonacoEditorInstance({
   const [code, setCode] = useState(initialCode || SAMPLE_CODE[initialLanguage])
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const [isExecuting, setIsExecuting] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
   const [executionOutput, setExecutionOutput] = useState<string>("")
   const editorContainerRef = useRef<HTMLDivElement>(null)
   const editorInstanceRef = useRef<any>(null)
@@ -187,14 +190,10 @@ export function MonacoEditorInstance({
   useEffect(() => {
     if (!editorInstanceRef.current) return
 
-    console.log("[v0] Updating decorations. Breakpoints:", breakpoints, "Current line:", currentExecutionLine)
-
     const decorations: any[] = []
 
     // Add breakpoint decorations (red circle in gutter)
-    // Using glyphMarginClassName with codicon classes that Monaco understands
     breakpoints.forEach((lineNum) => {
-      console.log("[v0] Adding decoration for breakpoint at line:", lineNum)
       decorations.push({
         range: new (window as any).monaco.Range(lineNum, 1, lineNum, 1),
         options: {
@@ -219,13 +218,57 @@ export function MonacoEditorInstance({
     }
 
     // Update decorations - use deltaDecorations to replace old ones
-    console.log("[v0] Calling deltaDecorations with", decorations.length, "decorations")
     const newIds = editorInstanceRef.current.deltaDecorations(decorationIdsRef.current, decorations)
     decorationIdsRef.current = newIds
-    console.log("[v0] New decoration IDs:", newIds)
   }, [breakpoints, currentExecutionLine])
 
-  // Handle gutter click for breakpoints
+  // Handle content changes to adjust breakpoint lines
+  useEffect(() => {
+    if (!editorInstanceRef.current) return
+
+    const editor = editorInstanceRef.current
+    const model = editor.getModel()
+    if (!model) return
+
+    // Listen for content changes
+    const changeListener = model.onDidChangeContent((event: any) => {
+      // Only process if we have breakpoints
+      if (breakpoints.length === 0) return
+
+      // Check if lines were deleted
+      const changes = event.changes
+      if (!changes || changes.length === 0) return
+
+      let adjustedBreakpoints = [...breakpoints]
+
+      for (const change of changes) {
+        const startLine = change.range.startLineNumber
+        const endLine = change.range.endLineNumber
+        const deletedLines = endLine - startLine
+
+        if (deletedLines > 0) {
+          // Lines were deleted - remove breakpoints from deleted lines
+          adjustedBreakpoints = adjustedBreakpoints.filter(
+            (bp) => !(bp >= startLine && bp <= endLine)
+          )
+
+          // Shift down breakpoints after the deleted section
+          adjustedBreakpoints = adjustedBreakpoints.map((bp) =>
+            bp > endLine ? bp - deletedLines : bp
+          )
+        }
+      }
+
+      // Only update if something changed
+      if (JSON.stringify(adjustedBreakpoints.sort((a, b) => a - b)) !== JSON.stringify(breakpoints.sort((a, b) => a - b))) {
+        onBreakpointsChange?.(adjustedBreakpoints.sort((a, b) => a - b))
+      }
+    })
+
+    return () => {
+      changeListener?.dispose()
+    }
+  }, [breakpoints, onBreakpointsChange])
   useEffect(() => {
     if (!editorInstanceRef.current) return
 
@@ -321,24 +364,56 @@ export function MonacoEditorInstance({
         </Select>
 
         {showRunButton && (
-          <Button
-            size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={handleRunCode}
-            disabled={isExecuting}
-          >
-            {isExecuting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Run
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={handleRunCode}
+              disabled={isExecuting}
+            >
+              {isExecuting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run
+                </>
+              )}
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 bg-transparent"
+              onClick={async () => {
+                if (onResetCode) {
+                  setIsResetting(true)
+                  try {
+                    await onResetCode()
+                  } finally {
+                    setIsResetting(false)
+                  }
+                }
+              }}
+              disabled={isResetting}
+              title="Reset to template code"
+            >
+              {isResetting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </div>
       {/* Input Panel */}

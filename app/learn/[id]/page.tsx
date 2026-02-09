@@ -118,7 +118,6 @@ export default function ProblemDetailPage() {
   const [currentExecutionLine, setCurrentExecutionLine] = useState<number | null>(null)
 
   const handleBreakpointsChange = (newBreakpoints: number[]) => {
-    console.log("[v0] Breakpoints changed:", newBreakpoints)
     setBreakpoints(newBreakpoints)
   }
 
@@ -252,10 +251,33 @@ export default function ProblemDetailPage() {
   }
 
   const handleStopDebug = () => {
-    setShowDebugWindow(false)
     stopDebugger()
     setIsDebugging(false)
-    setCurrentExecutionLine(null)
+  }
+
+  const handleResetCode = async () => {
+    try {
+      const cacheKey = `template_${problemId}_${language}`
+      const templateCode = await fetchWithCache(
+        cacheKey,
+        async () => {
+          const templateRes = await getTemplate(problemId, language)
+          return (templateRes.success && templateRes.template?.template_code) 
+            ? templateRes.template.template_code 
+            : ""
+        }
+      )
+
+      if (templateCode) {
+        setCode(templateCode)
+        // Clear auto-save for this problem/language
+        const storageKey = `problem_${problemId}_${language}`
+        localStorage.removeItem(storageKey)
+        console.log("[v0] Code reset to template and auto-save cleared")
+      }
+    } catch (error) {
+      console.error('Failed to reset code:', error)
+    }
   }
 
   const handleAnalyzeComplexity = async () => {
@@ -513,6 +535,7 @@ export default function ProblemDetailPage() {
               onBreakpointsChange={handleBreakpointsChange}
               currentExecutionLine={currentExecutionLine}
               showRunButton={true}
+              onResetCode={handleResetCode}
             />
           </div>
 
