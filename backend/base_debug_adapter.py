@@ -72,7 +72,7 @@ class BaseDebugAdapter(ABC):
         self.current_frame_id: Optional[int] = None
         
         # Debug flag
-        self.debug = True
+        self.debug = False
     
     def log(self, msg: str):
         """Debug logging"""

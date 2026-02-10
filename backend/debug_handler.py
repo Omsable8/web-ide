@@ -10,8 +10,11 @@ from flask_cors import CORS
 from config import Config
 from debug_adapter_factory import DebugSessionManager, DebugAdapterFactory, Language
 from base_debug_adapter import DebuggerState
+import traceback
+import requests
+import json
 
-
+from execution_handler import build_stdin
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}}, supports_credentials=True)
@@ -68,16 +71,50 @@ def handle_start_debug(data):
         input_data = data.get('input', '')
         breakpoints = data.get('breakpoints', [])
         
-        print(f"[SERVER] Language: {language_str}")
-        print(f"[SERVER] Code length: {len(code)} chars")
-        print(f"[SERVER] Breakpoints: {breakpoints}")
-        print(f"[SERVER] Input data: {len(input_data)} chars")
-        
         if not code:
             print("[SERVER] ERROR: No code provided")
             socketio.emit('debug_error', {'error': 'No code provided'}, room=sid)
             return
         
+        user_code_line_count = len(code.split('\n'))
+        print(f"[SERVER] Language: {language_str}")
+        print(f"[SERVER] Code length: {len(code)} chars")
+        print(f"[SERVER] Breakpoints: {breakpoints}")
+        print(f"[SERVER] Input data: {len(input_data)} chars")
+        problem_id = data.get('problem_id') # Make sure frontend sends this!
+
+        # 1. Fetch Templates & Test Cases
+        driver_code = ""
+        input_data = ""
+    
+        try:
+            # Fetch from your Flask API on Port 5000
+            resp = requests.get(f"http://localhost:5000/api/problems/{problem_id}/test-cases")
+            if resp.status_code == 200:
+                prob_data = resp.json()
+                # B. Build Stdin from Test Cases
+
+                test_cases = prob_data.get('public_test_cases', [])
+                test_params = test_cases[0].get('input_params',{})
+                input_data = build_stdin([test_params[0]],language=language_str) if test_cases else ""
+                
+            else:
+                print(f"[SERVER] Failed to fetch test-case for {problem_id}: {resp.status_code}")
+            
+            resp = requests.get(f"http://localhost:5000/api/problems/{problem_id}/template?language={language_str}")
+            if resp.status_code == 200:
+                prob_data = resp.json()
+                # B. Get Driver Code for the specific language
+                template = prob_data.get('template', {})
+                driver_code = template.get('driver_code', '')
+                code = code + '\n\n' + driver_code
+            else:
+                print(f"[SERVER] Failed to fetch template for {problem_id}: {resp.status_code}")
+        
+        except Exception as e:
+            print(f"[SERVER] Error fetching problem data: {e}")
+        
+        driver_start_line = user_code_line_count + 2
         # Convert language
         language = get_language_enum(language_str)
         
@@ -100,8 +137,16 @@ def handle_start_debug(data):
                 elif event_type == 'stopped':
                     state = event_data.get('state', {})
                     reason = event_data.get('reason', 'breakpoint')
-                    
-                    print(f"[SERVER] Stopped at line {state.get('line')}")
+                    line = state.get('line')
+                    # --- THE TRAP ---
+                    if line and line >= driver_start_line:
+                        print(f"[SERVER] User code ended at line {line}. Terminating session.")
+                        socketio.emit('debug_terminated', {'reason': 'program_finished'}, room=sid)
+                        # Optional: Force cleanup immediately
+                        _perform_cleanup(sid, reason="program_finished")
+                        return
+                    # ----------------
+                    print(f"[SERVER] Stopped at line {line}")
                     print(f"[SERVER] Variables: {len(state.get('variables', []))}")
                     print(f"[SERVER] Stack frames: {len(state.get('stack', []))}")
                     
@@ -119,13 +164,11 @@ def handle_start_debug(data):
                 
                 elif event_type == 'terminated':
                     print(f"[SERVER] Program finished naturally")
-                    # We don't need 'force_disconnect' here if you want to keep variables visible.
-                    # But if you want a full reset:
                     _perform_cleanup(sid, reason="program_terminated")
                     
             except Exception as e:
                 print(f"[SERVER] ERROR in event handler: {e}")
-                import traceback
+                
                 traceback.print_exc()
         
         # Create debug session
@@ -173,7 +216,7 @@ def handle_start_debug(data):
                 
             except Exception as e:
                 print(f"[SERVER] ERROR in start_debugger_async: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 socketio.emit('debug_error', {'error': str(e)}, room=sid)
         
@@ -182,7 +225,7 @@ def handle_start_debug(data):
     
     except Exception as e:
         print(f"[SERVER] ERROR in handle_start_debug: {e}")
-        import traceback
+        
         traceback.print_exc()
         socketio.emit('debug_error', {'error': str(e)}, room=sid)
 

@@ -273,7 +273,8 @@ export const useDebugger = (options: UseDebuggerOptions = {}) => {
     code: string,
     language: 'python' | 'java' | 'cpp'|string,
     breakpoints: number[] = [],
-    input?: string
+    problem_id: string,
+    input?: string,
   ) => {
     log('=== START DEBUGGER ===');
     log(`Language: ${language}`);
@@ -306,6 +307,7 @@ export const useDebugger = (options: UseDebuggerOptions = {}) => {
       language,
       breakpoints,
       input: input || '',
+      problem_id: problem_id,
     });
   }, []);
 

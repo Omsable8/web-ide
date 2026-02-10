@@ -2,6 +2,8 @@ import json
 import traceback
 from flask import Flask, app, request, jsonify
 from flask_cors import CORS
+from supabase import create_client
+import os
 
 from config import Config
 from code_executor import CodeExecutor
@@ -12,6 +14,9 @@ app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
+supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+supabase = create_client(supabase_url, supabase_key)
 
 # ============================================================================
 # Code Execution Endpoints
@@ -59,9 +64,6 @@ def run_tests(problem_id):
     """Run user code against public test cases only using stdin/stdout"""
     
     try:
-        from supabase import create_client
-        import os
-        import json
         
         data = request.get_json()
         user_code = data.get('code', '')
@@ -70,9 +72,6 @@ def run_tests(problem_id):
         if not user_code.strip():
             return jsonify({"success": False, "error": "No code provided"}), 400
         
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
         
         # Get template with driver_code and solution_code
         template_response = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
@@ -86,10 +85,10 @@ def run_tests(problem_id):
         
         # Get only public test cases
         test_cases_response = supabase.table('test_cases').select('*').eq('problem_id', problem_id).eq('is_hidden', False).execute()
-        test_cases = test_cases_response.data
+        test_cases = test_cases_response.data #PUBLIC + PRIVATE
         
         # Flatten all test cases
-        all_test_inputs = []
+        all_test_inputs = [] # list of list of jsons
         test_metadata = []
         
         for test_case in test_cases:
@@ -121,7 +120,6 @@ def run_tests(problem_id):
         stdin_string = build_stdin(all_test_inputs, language)
         # print(f"Built stdin string for {total_tests} tests: {stdin_string}")
         # Execute user code
-        from code_executor import CodeExecutor
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code , language, stdin_string)
         user_outputs = user_result.get('output', '').strip().split('\n') if user_result.get('output') else []
         
@@ -156,7 +154,6 @@ def run_tests(problem_id):
         
     except Exception as e:
         print(f"[ERROR] Run tests failed: {str(e)}")
-        import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -166,9 +163,6 @@ def submit_code(problem_id):
     """Submit user code against public + private test cases using stdin/stdout"""
     
     try:
-        from supabase import create_client
-        import os
-        import json
         
         data = request.get_json()
         user_code = data.get('code', '')
@@ -177,10 +171,6 @@ def submit_code(problem_id):
         
         if not user_code.strip():
             return jsonify({"success": False, "error": "No code provided"}), 400
-        
-        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
         
         # Get template with driver_code and solution_code
         template_response = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
@@ -220,7 +210,6 @@ def submit_code(problem_id):
         stdin_string = build_stdin(all_test_inputs, language)
         # print(f"Built stdin string for {total_tests} tests:\n{stdin_string}")
         # Execute user code once with all tests
-        from code_executor import CodeExecutor
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code, language, stdin_string)
         user_outputs = user_result.get('output', '').strip().split('\n') if user_result.get('output') else []
         
@@ -257,7 +246,6 @@ def submit_code(problem_id):
         
     except Exception as e:
         print(f"[ERROR] Submit code failed: {str(e)}")
-        import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 

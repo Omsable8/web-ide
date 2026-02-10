@@ -243,7 +243,7 @@ export default function ProblemDetailPage() {
       // Build stdin string from the first test case
       // const stdin = '1\n2 2\n1 1 1\n0 0 0\n1 1 1\n1\n1\n2'  // Example: t=1, then input for 1 test case
       const stdin = ''
-      startDebugger(code, language, breakpoints, stdin)
+      startDebugger(code, language, breakpoints, problemId, stdin)
     } catch (error) {
       console.error('Failed to start debugger:', error)
       setIsDebugging(false)
@@ -253,6 +253,8 @@ export default function ProblemDetailPage() {
   const handleStopDebug = () => {
     stopDebugger()
     setIsDebugging(false)
+    setShowDebugWindow(false)
+    setCurrentExecutionLine(null)
   }
 
   const handleResetCode = async () => {

@@ -1,0 +1,40 @@
+TABLE USER CODE SUBMISSIONS
+
+- uid
+- pid
+- code
+- error (no error) (TLE) (SPLE) (syntax,semantic) 
+- no. pass tc
+- no. fail tc
+- btn (run test, submit)
+- passed tc
+- failed tc {[{name:a,value:1,type:integer}, {name:b,value:2,}] -> stdin :
+- timestamp
+
+TABLE AI CHAT:
+- uid
+- pid
+- chat [{usr:"",resp:"", time:},]
+
+
+TABLE FEATURE_USAGE:
+- uid
+- pid
+- hints (0,1,2,3)
+- debug btn(1,0)
+- performance analyzer (0,1)
+- ai used (1,0)
+- custom tc
+- dev preferences
+
+TABLE RUN (optional)
+
+#### AUTH #####
+
+user_profiles
+- uid
+- name
+- email
+- passwd
+
+

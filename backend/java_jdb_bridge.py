@@ -197,7 +197,8 @@ class JdbBridge:
             # JDB syntax: stop at MyClass:10
             bps = req['arguments']['breakpoints']
             for bp in bps:
-                self._write_jdb(f"stop at {self.main_class}:{bp['line']}")
+                target_class = "Solution"
+                self._write_jdb(f"stop at {target_class}:{bp['line']}")
             
             # Tell frontend they are verified
             self._send_dap_response(req, body={

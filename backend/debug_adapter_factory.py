@@ -160,8 +160,8 @@ class DebugAdapterFactory:
                             work_dir: str, on_event) -> Optional[BaseDebugAdapter]:
         """Create Java adapter from code string"""
         # Wrap code with main if needed
-        if 'public static void main' not in code:
-            code = JavaDebugAdapterHelper.wrap_with_main(code)
+        # if 'public static void main' not in code:
+        #     code = JavaDebugAdapterHelper.wrap_with_main(code)
         
         # Create source file
         source_file = os.path.join(work_dir, 'Main.java')
@@ -184,8 +184,8 @@ class DebugAdapterFactory:
                            work_dir: str, on_event) -> Optional[BaseDebugAdapter]:
         """Create C++ adapter from code string"""
         # Wrap code with main if needed
-        if 'int main' not in code:
-            code = CppDebugAdapterHelper.wrap_with_main(code)
+        # if 'int main' not in code:
+        #     code = CppDebugAdapterHelper.wrap_with_main(code)
         
         # Create source file
         source_file = os.path.join(work_dir, 'solution.cpp')

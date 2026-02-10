@@ -12,7 +12,7 @@ class CodeExecutor:
     """Execute code in different programming languages"""
     
     # Timeout in seconds
-    TIMEOUT = 10
+    TIMEOUT = 5
     
     # Max output length in characters
     MAX_OUTPUT = 10000
