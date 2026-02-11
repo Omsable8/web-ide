@@ -29,6 +29,7 @@ class PythonDebugAdapter(BaseDebugAdapter):
         """Start debugpy server for Python debugging"""
         cmd = [
             self.python_path,
+            '-u',   # unbuffered stdout/stderr
             '-m', 'debugpy',
             '--listen', f'127.0.0.1:{self.port}',
             '--wait-for-client',
@@ -80,7 +81,7 @@ class PythonDebugAdapterWithInput(PythonDebugAdapter):
     def _start_debug_server(self) -> subprocess.Popen:
         """Start debugpy with stdin redirected from input file"""
         cmd = [
-            self.python_path,
+            self.python_path, '-u',   # unbuffered stdout/stderr
             '-m', 'debugpy',
             '--listen', f'127.0.0.1:{self.port}',
             '--wait-for-client',

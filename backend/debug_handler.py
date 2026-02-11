@@ -13,7 +13,7 @@ from base_debug_adapter import DebuggerState
 import traceback
 import requests
 import json
-
+import re
 from execution_handler import build_stdin
 # Initialize Flask app
 app = Flask(__name__)
@@ -70,17 +70,13 @@ def handle_start_debug(data):
         language_str = data.get('language', 'python')
         input_data = data.get('input', '')
         breakpoints = data.get('breakpoints', [])
+        user_code_line_count = len(code.split('\n'))
         
         if not code:
             print("[SERVER] ERROR: No code provided")
             socketio.emit('debug_error', {'error': 'No code provided'}, room=sid)
             return
         
-        user_code_line_count = len(code.split('\n'))
-        print(f"[SERVER] Language: {language_str}")
-        print(f"[SERVER] Code length: {len(code)} chars")
-        print(f"[SERVER] Breakpoints: {breakpoints}")
-        print(f"[SERVER] Input data: {len(input_data)} chars")
         problem_id = data.get('problem_id') # Make sure frontend sends this!
 
         # 1. Fetch Templates & Test Cases
@@ -118,6 +114,10 @@ def handle_start_debug(data):
         # Convert language
         language = get_language_enum(language_str)
         
+        print(f"[SERVER] Language: {language_str}")
+        print(f"[SERVER] Code length: {len(code)} chars")
+        print(f"[SERVER] Breakpoints: {breakpoints}")
+        print(f"[SERVER] Input data: {len(input_data)} chars")
         # Event handler for debug events
         def on_debug_event(event_type: str, event_data: dict):
             """Forward debug events to frontend"""
@@ -126,6 +126,7 @@ def handle_start_debug(data):
                 
                 if event_type == 'output':
                     # Don't send telemetry
+                    print(f"[SERVER] Output: {event_data.get('output', '')}")
                     if event_data.get('category') == 'telemetry':
                         return
                     
@@ -421,21 +422,53 @@ def format_variables(variables: list) -> dict:
     Format variables for frontend display.
     """
     result = {}
+    block_list = ['sys','json','os','t','_','special variables', 'global variables', 'local variables', 'function variables'
+                  ,'class variables','self', 'cls', 'optional','sol','line']
+    # 1. Blocklist: Exact names to ignore
+    IGNORED_NAMES = {
+        'self','class variables', 'local variables', 'global variables','special variables','function variables'# Common runner/driver variables
+    }
+    
+    # 2. Pattern Blocklist (Regex)
+    # Filter out "special variables", "function variables", etc.
+    IGNORED_PATTERNS = [
+        r'^<.*>$',                  # Matches <module 'json'>, <function ...>
+        r'^_.*',                    # Matches _private_vars (optional, usually good to hide)
+        r'.* module$',              # Matches module objects if description leaks
+        r'.*line.*',                # Variables that include 'line' in their name (often internal state)
+        r'.*frame.*',               # Variables that include 'frame' in their name (often internal state)
+
+    ]
+
     for var in variables:
         name = var.get('name', '')
         value = var.get('value', '')
         var_type = var.get('type', '')
         
-        # Skip special Python variables
+        # --- FILTER 1: Exact Match ---
+        if name in IGNORED_NAMES:
+            continue
+            
+        # --- FILTER 2: Pattern Match ---
+        # Skip if name matches any ignored pattern
+        if any(re.search(pat, name, re.IGNORECASE) for pat in IGNORED_PATTERNS):
+            continue
+
+        # --- FILTER 3: Value/Type-based Filtering ---
+        # Hide modules, functions, and classes (unless you want to show them)
+        if 'module' in var_type or 'function' in var_type or 'class' in var_type:
+            continue
+            
+        # Hide complex Dunder variables (double underscore)
         if name.startswith('__') and name.endswith('__'):
             continue
-        
-        # Include type for non-primitives
-        if var_type and var_type not in ['int', 'str', 'float', 'bool']:
+        # --- Formatting ---
+        # Include type for non-primitives, but keep it clean
+        if var_type and var_type not in ['int', 'str', 'float', 'bool', 'list', 'dict', 'set']:
             result[name] = f"{value} ({var_type})"
         else:
             result[name] = value
-    
+        
     return result
 
 

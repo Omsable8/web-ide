@@ -281,6 +281,8 @@ class BaseDebugAdapter(ABC):
         all_variables = []
         for scope in scopes:
             scope_name = scope.get('name', 'unknown')
+            if scope_name == "Globals":
+                continue # Skip globals to reduce noise, can be enabled if needed
             var_ref = scope.get('variablesReference', 0)
             
             if var_ref == 0:
@@ -396,7 +398,7 @@ class BaseDebugAdapter(ABC):
                 except: pass
                 self.listener_greenlet = None
 
-            # 6. Delete Temp Files (The most important part for you)
+            # 6. Delete Temp Files
             if self.work_dir and os.path.exists(self.work_dir):
                 try:
                     self.log(f"Deleting temp session: {self.work_dir}")
@@ -632,7 +634,7 @@ class BaseDebugAdapter(ABC):
         # it means the process finished. We should signal termination.
         if not self.stop_event.ready():
             self.log("Socket disconnected unexpectedly. Assuming process finished.")
-            # self.state = DebuggerState.TERMINATED
+            self.state = DebuggerState.TERMINATED
             if self.on_event:
                 self.on_event('terminated', {})
         self.log("Message listener stopped")

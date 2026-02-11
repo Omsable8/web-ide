@@ -11,6 +11,7 @@ class JavaDebugAdapter(BaseDebugAdapter):
         super().__init__(class_name, port, on_event)
         self.class_name = class_name
         self.classpath = classpath
+        self.work_dir = classpath # For Java, classpath is also the working directory
         self.entry_class = class_name # Default to class_name
     def _start_debug_server(self) -> subprocess.Popen:
         """

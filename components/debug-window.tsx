@@ -143,18 +143,17 @@ export function DebugWindow({
 
           {expandedSections.variables && (
             <div className="px-4 py-2 bg-background/50">
-              {Object.keys(debugState.variables).length > 0 ? (
-                <div className="space-y-1 font-mono text-xs">
-                  {Object.entries(debugState.variables).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="text-blue-400">{key}</span>
-                      <span className="text-green-400 ml-4">{String(value).substring(0, 100)}</span>
-                    </div>
-                  ))}
+              {Object.entries(debugState.variables).map(([key, value]) => (
+                <div key={key} className="flex items-start gap-2 mb-1">
+                  {/* Variable Name: Keep it distinct */}
+                  <span className="text-blue-400 font-medium shrink-0">{key}:</span>
+
+                  {/* Variable Value: Allow it to wrap to the next line if it's long */}
+                  <span className="text-green-400 break-all whitespace-pre-wrap">
+                    {String(value)}
+                  </span>
                 </div>
-              ) : (
-                <div className="text-xs text-muted-foreground italic">No variables yet</div>
-              )}
+              ))}
             </div>
           )}
         </div>
