@@ -1,13 +1,13 @@
 """
 Updated Data Logger - Separate AI messages (industry standard)
 """
-from supabase import create_client, Client
+from supabase import Client
 from datetime import datetime
 
 
 class DataLogger:
-    def __init__(self, supabase_url: str, supabase_key: str):
-        self.supabase: Client = create_client(supabase_url, supabase_key)
+    def __init__(self, supabase_client: Client = None):
+        self.supabase: Client = supabase_client
     
     # ========== CODE SUBMISSIONS ==========
     
@@ -19,8 +19,7 @@ class DataLogger:
         data = {
             'uid': uid, 'pid': pid, 'code': code, 'language': language,
             'error': error, 'num_pass_tc': num_pass, 'num_fail_tc': num_fail,
-            'btn': btn, 'passed_tc': passed_tc or [], 'failed_tc': failed_tc or [],
-            'runtime_ms': runtime_ms, 'memory_mb': memory_mb
+            'btn': btn, 'passed_tc': passed_tc or [], 'failed_tc': failed_tc or []
         }
         return self.supabase.table('user_code_submissions').insert(data).execute()
     

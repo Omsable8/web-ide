@@ -166,16 +166,17 @@ export async function runTests(
   custom_tests?: any[]
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; error?: string }> {
   try {
+    const userId = localStorage.getItem('uid');
     const response = await fetch(`${API_BASE_EXE_URL}/api/problems/${problemId}/run-tests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, language, custom_tests }),
+      body: JSON.stringify({ code, language, custom_tests,userId}),
     })
-
+    
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}` }
     }
-
+    
     return await response.json()
   } catch (error) {
     console.error("[API] Run tests error:", error)
@@ -190,10 +191,11 @@ export async function submitCode(
   custom_tests?: any[]
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; accepted?: boolean; error?: string }> {
   try {
+    const userId = localStorage.getItem('uid');
     const response = await fetch(`${API_BASE_EXE_URL}/api/problems/${problemId}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, language, custom_tests }),
+      body: JSON.stringify({ code, language, custom_tests,userId }),
     })
 
     if (!response.ok) {

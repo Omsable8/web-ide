@@ -7,7 +7,7 @@ import os
 
 from config import Config
 from code_executor import CodeExecutor
-
+from data_logger import DataLogger
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -69,6 +69,7 @@ def run_tests(problem_id):
         user_code = data.get('code', '')
         language = data.get('language', 'python')
         custom_tests = data.get('custom_tests', [])
+        user_id = data.get('userId','')
         if not user_code.strip():
             return jsonify({"success": False, "error": "No code provided"}), 400
         
@@ -144,7 +145,30 @@ def run_tests(problem_id):
             })
         
         passed_count = sum(1 for r in results if r['passed'])
-        
+        pass_tc = []
+        fail_tc = []
+        for r in results:
+            if r['passed'] and r['type'] != 'custom':
+                pass_tc.append(r['test_id'])
+            elif r['passed'] and r['type'] == 'custom':
+                pass_tc.append(r['input_params'])
+            elif not r['passed'] and r['type'] != 'custom':
+                fail_tc.append(r['test_id'])
+            elif not r['passed'] and r['type'] == 'custom':
+                fail_tc.append(r['input_params'])
+        logger = DataLogger(supabase)
+        logger.log_submission(
+            uid=user_id,
+            pid=problem_id,
+            code=user_code,
+            language=language,
+            error=user_result.get('error', ''),
+            num_pass=passed_count,
+            num_fail=total_tests - passed_count,
+            btn='test',
+            passed_tc=pass_tc,
+            failed_tc=fail_tc
+        )
         return jsonify({
             "success": True,
             "total_tests": total_tests,
@@ -168,6 +192,7 @@ def submit_code(problem_id):
         user_code = data.get('code', '')
         language = data.get('language', 'python')
         custom_tests = data.get('custom_tests', [])
+        user_id = data.get('userId','')
         
         if not user_code.strip():
             return jsonify({"success": False, "error": "No code provided"}), 400
@@ -235,6 +260,30 @@ def submit_code(problem_id):
         
         passed_count = sum(1 for r in results if r['passed'])
         all_passed = passed_count == len(results)
+        pass_tc = []
+        fail_tc = []
+        for r in results:
+            if r['passed'] and r['type'] != 'custom':
+                pass_tc.append(r['test_id'])
+            elif r['passed'] and r['type'] == 'custom':
+                pass_tc.append(r['input_params'])
+            elif not r['passed'] and r['type'] != 'custom':
+                fail_tc.append(r['test_id'])
+            elif not r['passed'] and r['type'] == 'custom':
+                fail_tc.append(r['input_params'])
+        logger = DataLogger(supabase)
+        logger.log_submission(
+            uid=user_id,
+            pid=problem_id,
+            code=user_code,
+            language=language,
+            error=user_result.get('error', ''),
+            num_pass=passed_count,
+            num_fail=total_tests - passed_count,
+            btn='submit',
+            passed_tc=pass_tc,
+            failed_tc=fail_tc
+        )
         
         return jsonify({
             "success": True,
