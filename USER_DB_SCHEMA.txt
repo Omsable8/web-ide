@@ -8,13 +8,15 @@ TABLE USER CODE SUBMISSIONS
 - no. fail tc
 - btn (run test, submit)
 - passed tc
-- failed tc {[{name:a,value:1,type:integer}, {name:b,value:2,}] -> stdin :
+- failed tc 
 - timestamp
 
 TABLE AI CHAT:
 - uid
 - pid
-- chat [{usr:"",resp:"", time:},]
+- role (user, ai)
+- content (message)
+- timestamp
 
 
 TABLE FEATURE_USAGE:

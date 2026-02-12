@@ -3,13 +3,22 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { CodeEditor } from '@/components/code-editor'
-import { Terminal } from '@/components/terminal'
+// import { Terminal } from '@/components/terminal'
 import { AIChatbot } from '@/components/ai-chatbot'
 import { ShortcutsGuide } from '@/components/shortcuts-guide'
 import { Button } from '@/components/ui/button'
 import { Keyboard, MessageSquare, Code2, Home } from 'lucide-react'
+import { ProtectedRoute } from '@/components/protected-route'
 
-export default function CodePage() {
+export default function CodePageWrapper() {
+  return (
+    <ProtectedRoute>
+      <CodePage />
+    </ProtectedRoute>
+  )
+}
+
+function CodePage() {
   const [terminalHeight, setTerminalHeight] = useState(250)
   const [chatbotWidth, setChatbotWidth] = useState(384)
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -87,7 +96,7 @@ export default function CodePage() {
             className="h-1 bg-border hover:bg-accent cursor-row-resize transition-colors"
           />
 
-          <Terminal height={terminalHeight} />
+          {/* <Terminal height={terminalHeight} /> */}
         </div>
 
         {/* Resizable Divider */}

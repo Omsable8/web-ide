@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X, Bug } from 'lucide-react'
-import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate } from '@/lib/api'
+import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate, updateFeaturesUsed, getFeaturesUsed } from '@/lib/api'
 import { MonacoEditorInstance} from '@/components/monaco-editor-instance'
 import { AIChatbot } from '@/components/ai-chatbot'
 import { StructuredTestCases } from '@/components/structured-test-cases'
@@ -14,6 +14,8 @@ import { DebugWindow } from '@/components/debug-window'
 import { DevPreferences } from '@/components/dev-preferences'
 import { PerformanceAnalyzer } from '@/components/performance-analyzer'
 import { useDebugger } from '@/hooks/use-debugger'
+import { ProtectedRoute } from '@/components/protected-route'
+import { useAuth } from '@/lib/auth-context'
 
 interface Problem {
   id: string
@@ -86,9 +88,18 @@ async function fetchWithCache<T>(
   
   return data
 }
-export default function ProblemDetailPage() {
+export default function ProblemDetailPageWrapper() {
+  return (
+    <ProtectedRoute>
+      <ProblemDetailPage />
+    </ProtectedRoute>
+  )
+}
+
+function ProblemDetailPage() {
   const params = useParams()
   const problemId = params.id as string
+  const { user } = useAuth()
 
   const [problem, setProblem] = useState<Problem | null>(null)
   const [testCases, setTestCases] = useState<TestCase[]>([])
@@ -98,6 +109,9 @@ export default function ProblemDetailPage() {
   const [code, setCode] = useState('')
   const [language, setLanguage] = useState('python')
   const [showHints, setShowHints] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false })
+  const [hintsUsed, setHintsUsed] = useState<number>(0) // 0-3: 0=never, 1=level1, 2=level2, 3=level3
+  const [debuggerUsed, setDebuggerUsed] = useState<number>(0) // 0-1: 0=never, 1=used
+  const [aiUsed, setAiUsed] = useState<number>(0) // 0-1: 0=never, 1=used
   const [activeTab, setActiveTab] = useState<'description' | 'testcases'>('description')
   const [chatbotWidth, setChatbotWidth] = useState(320)
   const [showChatbot, setShowChatbot] = useState(true)
@@ -116,6 +130,29 @@ export default function ProblemDetailPage() {
   const [isDebugging, setIsDebugging] = useState(false)
   const [breakpoints, setBreakpoints] = useState<number[]>([])
   const [currentExecutionLine, setCurrentExecutionLine] = useState<number | null>(null)
+
+  const handleToggleHint = async (hintLevel: number, isOpening: boolean) => {
+    // Update UI
+    setShowHints((prev) => ({ ...prev, [hintLevel]: !prev[hintLevel] }))
+
+    // Track hint usage - only update if opening a hint and haven't tracked this level yet
+    if (isOpening && hintLevel > hintsUsed && user) {
+      const newHintsUsed = hintLevel
+      setHintsUsed(newHintsUsed)
+
+      // Call backend to update features used
+      try {
+        await updateFeaturesUsed(
+          localStorage.getItem('uid') || user.uid,
+          problemId,
+          { hints: newHintsUsed },
+          { hints: hintsUsed }
+        )
+      } catch (error) {
+        console.error('[v0] Failed to update hints usage:', error)
+      }
+    }
+  }
 
   const handleBreakpointsChange = (newBreakpoints: number[]) => {
     setBreakpoints(newBreakpoints)
@@ -460,7 +497,7 @@ export default function ProblemDetailPage() {
                   {hints.map((hint) => (
                     <div key={hint.level} className="bg-background/30 rounded border border-border">
                       <button
-                        onClick={() => setShowHints((prev) => ({ ...prev, [hint.level]: !prev[hint.level] }))}
+                        onClick={() => handleToggleHint(hint.level, !showHints[hint.level])}
                         className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
                       >
                         <div className="flex items-center gap-2">
@@ -544,7 +581,7 @@ export default function ProblemDetailPage() {
           {/* Debug Window at Bottom of Editor Panel */}
           <DebugWindow
             isOpen={showDebugWindow}
-            onClose={(handleStopDebug)}
+            onClose={handleStopDebug}
             debugState={debugState}
             onStepOver={stepOver}
             onStepInto={stepInto}

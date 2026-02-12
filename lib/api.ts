@@ -403,3 +403,95 @@ export async function analyzeComplexity(code: string, language: string) {
     return { success: false, error: String(error) }
   }
 }
+
+// ============================================================================
+// Feature Usage Tracking
+// ============================================================================
+
+export interface FeaturesUsed {
+  hints?: number // 0-3: 0=never, 1=level1, 2=level2, 3=level3
+  debug_btn?: number // 0-1: 0=never, 1=used
+  performance_analyzer?: number // 0-1: 0=never, 1=used
+  ai_used?: number // 0-1: 0=never, 1=used
+  custom_tc?: number // 0-1: 0=never, 1=used
+  dev_preferences?: any
+}
+
+/**
+ * Update features used for a problem
+ * Only calls backend if the feature hasn't been tracked yet (value is null/0)
+ */
+export async function updateFeaturesUsed(
+  uid: string,
+  problemId: string,
+  features: FeaturesUsed,
+  initialFeatures: FeaturesUsed
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Check if we need to update - only if initial value was 0 or null
+    const needsUpdate: FeaturesUsed = {}
+
+    if (features.hints !== undefined && (initialFeatures.hints === 0 || initialFeatures.hints === null)) {
+      needsUpdate.hints = features.hints
+    }
+    if (features.debug_btn !== undefined && (initialFeatures.debug_btn === 0 || initialFeatures.debug_btn === null)) {
+      needsUpdate.debug_btn = features.debug_btn
+    }
+    if (features.performance_analyzer !== undefined && (initialFeatures.performance_analyzer === 0 || initialFeatures.performance_analyzer === null)) {
+      needsUpdate.performance_analyzer = features.performance_analyzer
+    }
+    if (features.ai_used !== undefined && (initialFeatures.ai_used === 0 || initialFeatures.ai_used === null)) {
+      needsUpdate.ai_used = features.ai_used
+    }
+    if (features.custom_tc !== undefined && (initialFeatures.custom_tc === 0 || initialFeatures.custom_tc === null)) {
+      needsUpdate.custom_tc = features.custom_tc
+    }
+    if (features.dev_preferences !== undefined && !initialFeatures.dev_preferences) {
+      needsUpdate.dev_preferences = features.dev_preferences
+    }
+
+    // If nothing needs updating, skip the backend call
+    if (Object.keys(needsUpdate).length === 0) {
+      return { success: true }
+    }
+
+    const response = await fetch(`${API_BASE_DB_URL}/api/features/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid,
+        pid: problemId,
+        features: needsUpdate,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('[v0] Update features error:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/**
+ * Get features used for a problem by user
+ */
+export async function getFeaturesUsed(
+  uid: string,
+  problemId: string
+): Promise<{ success: boolean; features?: FeaturesUsed; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/features/${uid}/${problemId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    return await response.json()
+  } catch (error) {
+    console.error('[v0] Get features error:', error)
+    return { success: false, error: String(error) }
+  }
+}

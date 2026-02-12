@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { CodeEditor } from "@/components/code-editor"
-import { Terminal } from "@/components/terminal"
 import { AIChatbot } from "@/components/ai-chatbot"
 import { ShortcutsGuide } from "@/components/shortcuts-guide"
 import { Button } from "@/components/ui/button"
@@ -87,9 +86,9 @@ export default function WebIDE() {
           />
 
           {/* Terminal */}
-          <div className="overflow-hidden" style={{ height: `${terminalHeight}px` }}>
+          {/* <div className="overflow-hidden" style={{ height: `${terminalHeight}px` }}>
             <Terminal outputContext={outputContext} />
-          </div>
+          </div> */}
         </div>
 
         {/* Resizer for chatbot */}

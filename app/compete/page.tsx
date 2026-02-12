@@ -3,8 +3,17 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, Zap } from 'lucide-react'
+import { ProtectedRoute } from '@/components/protected-route'
 
-export default function CompetePage() {
+export default function CompetePageWrapper() {
+  return (
+    <ProtectedRoute>
+      <CompetePage />
+    </ProtectedRoute>
+  )
+}
+
+function CompetePage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}

@@ -8,6 +8,7 @@ import { getProblems } from '@/lib/api'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Loading from './loading'
+import { ProtectedRoute } from '@/components/protected-route'
 
 interface Problem {
   id: string
@@ -17,7 +18,15 @@ interface Problem {
   acceptance_rate?: number
 }
 
-export default function LearnPage() {
+export default function LearnPageWrapper() {
+  return (
+    <ProtectedRoute>
+      <LearnPage/>
+    </ProtectedRoute>
+  )
+}
+
+function LearnPage() {
   const [problems, setProblems] = useState<Problem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')

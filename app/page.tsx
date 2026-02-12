@@ -3,9 +3,24 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Code2, BookOpen, Zap } from 'lucide-react'
+import { Code2, BookOpen, Zap, LogOut, User } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
 
 export default function Dashboard() {
+  const { user, logout } = useAuth()
+  const router = useRouter()
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  const handleLogout = () => {
+    logout()
+    router.push('/')
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -16,9 +31,37 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-accent">CodeLearning</h1>
           </div>
           <nav className="flex items-center gap-6">
-            <Link href="/learn" className="text-foreground hover:text-accent transition">Learn</Link>
-            <Link href="/code" className="text-foreground hover:text-accent transition">Practice</Link>
-            <Link href="/compete" className="text-foreground hover:text-accent transition">Compete</Link>
+            {isClient && user ? (
+              <>
+                <Link href="/learn" className="text-foreground hover:text-accent transition">Learn</Link>
+                <Link href="/code" className="text-foreground hover:text-accent transition">Practice</Link>
+                <Link href="/compete" className="text-foreground hover:text-accent transition">Compete</Link>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <User className="w-4 h-4" />
+                    {user.name}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="gap-2 bg-transparent"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="outline">Sign In</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button className="bg-accent hover:bg-accent/90">Sign Up</Button>
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -28,20 +71,36 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h2 className="text-5xl font-bold text-accent mb-4">Master DSA & Competitive Programming</h2>
           <p className="text-xl text-muted-foreground mb-8">Practice problems, get AI hints, and track your progress</p>
-          <div className="flex gap-4 justify-center">
-            <Link href="/learn">
-              <Button size="lg" className="bg-accent hover:bg-accent/90">
-                <BookOpen className="w-5 h-5 mr-2" />
-                Start Learning
-              </Button>
-            </Link>
-            <Link href="/code">
-              <Button size="lg" variant="outline">
-                <Code2 className="w-5 h-5 mr-2" />
-                Practice Code
-              </Button>
-            </Link>
-          </div>
+          {isClient && user ? (
+            <div className="flex gap-4 justify-center">
+              <Link href="/learn">
+                <Button size="lg" className="bg-accent hover:bg-accent/90">
+                  <BookOpen className="w-5 h-5 mr-2" />
+                  Start Learning
+                </Button>
+              </Link>
+              <Link href="/code">
+                <Button size="lg" variant="outline">
+                  <Code2 className="w-5 h-5 mr-2" />
+                  Practice Code
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="flex gap-4 justify-center">
+              <Link href="/signup">
+                <Button size="lg" className="bg-accent hover:bg-accent/90">
+                  <BookOpen className="w-5 h-5 mr-2" />
+                  Get Started
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button size="lg" variant="outline">
+                  Sign In
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

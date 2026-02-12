@@ -6,12 +6,19 @@ from flask_socketio import SocketIO, emit, disconnect
 from config import Config
 import os
 from supabase import create_client
+
+from auth_handler import AuthHandler
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
-supabase = create_client(os.getenv('NEXT_PUBLIC_SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
+
+SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+
+auth = AuthHandler(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(SUPABASE_URL,SUPABASE_KEY)
 
 # --- Cached Helper Functions ---
 
@@ -61,6 +68,137 @@ def health_check():
         "code_execution": "local"
     })
 
+
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+@app.route('/api/auth/signup', methods=['POST'])
+def signup():
+    '''Handle user signup'''
+    data = request.get_json()
+    
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password')
+    cohort = data.get('cohort')  # Optional
+    
+    if not name or not email or not password:
+        return jsonify({
+            'success': False,
+            'error': 'Name, email, and password are required'
+        }), 400
+    
+    # Validate password strength
+    if len(password) < 6:
+        return jsonify({
+            'success': False,
+            'error': 'Password must be at least 6 characters'
+        }), 400
+    
+    result = auth.signup(name, email, password, cohort)
+    
+    if result['success']:
+        return jsonify(result), 201
+    else:
+        return jsonify(result), 400
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    '''Handle user login'''
+    data = request.get_json()
+    
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not email or not password:
+        return jsonify({
+            'success': False,
+            'error': 'Email and password are required'
+        }), 400
+    
+    result = auth.login(email, password)
+    
+    # print(f"[DEBUG] User {result['user']['email']} logged in with UID {result['user']['uid']}")
+    if result['success']:
+        return jsonify(result), 200
+    else:
+        return jsonify(result), 401
+
+
+@app.route('/api/auth/verify', methods=['POST'])
+def verify():
+    '''Verify user token'''
+    data = request.get_json()
+    token = data.get('token')
+    
+    if not token:
+        return jsonify({
+            'valid': False,
+            'error': 'Token is required'
+        }), 400
+    
+    result = auth.verify_token(token)
+    
+    if result['valid']:
+        return jsonify(result), 200
+    else:
+        return jsonify(result), 401
+
+
+# Middleware to protect routes
+def require_auth(f):
+    '''Decorator to require authentication'''
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized'
+            }), 401
+        
+        token = auth_header.split(' ')[1]
+        result = auth.verify_token(token)
+        
+        if not result['valid']:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid token'
+            }), 401
+        
+        # Add user_id to request for use in route
+        request.user_id = result['uid']
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+
+# Example protected route
+@app.route('/api/user/profile', methods=['GET'])
+@require_auth
+def get_profile():
+    '''Get current user profile (protected route)'''
+    user_id = request.user_id
+    
+    result = auth.supabase.table('user_profiles').select('uid, name, email, cohort, created_at').eq('uid', user_id).execute()
+    
+    if result.data:
+        return jsonify({
+            'success': True,
+            'user': result.data[0]
+        }), 200
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'User not found'
+        }), 404
 # ============================================================================
 # DSA Problems Endpoints
 # ============================================================================
