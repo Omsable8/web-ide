@@ -113,7 +113,6 @@ function ProblemDetailPage() {
 
   const [hintsUsed, setHintsUsed] = useState<number>(0) // 0-3: 0=never, 1=level1, 2=level2, 3=level3
   const [debuggerUsed, setDebuggerUsed] = useState<number>(0) // 0-1: 0=never, 1=used
-  const [aiUsed, setAiUsed] = useState<number>(0) // 0-1: 0=never, 1=used
   const [complexityUsed, setComplexityUsed] = useState<number>(0) // 0-1: 0=never, 1=used
   const [devprefUsed, setDevPrefUsed ] = useState<number>(0) // 0-1: 0=never, 1=used
   const [customTcUsed, setCustomTcUsed ] = useState<number>(0) // 0-1: 0=never, 1=used
@@ -372,8 +371,10 @@ function ProblemDetailPage() {
           return problemRes.success ? problemRes.problem : null
         }
       )
-      if (problemData) setProblem(problemData)
-
+      if (problemData){
+        setProblem(problemData)
+        sessionStorage.setItem('problemID', problemData.id)
+      }
       // 2. Fetch Test Cases with Cache
       const testCasesData = await fetchWithCache(
         `testcases_${problemId}`,
@@ -545,8 +546,7 @@ function ProblemDetailPage() {
                   <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
                   <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => {
                     setShowChatbot(true);
-                    updateFeaturesUsed(localStorage.getItem('uid')||'', problemId, {ai_used:1},{ai_used:aiUsed})
-                    setAiUsed(1)
+                    
                     }}>
                     Open AI Assistant
                   </Button>

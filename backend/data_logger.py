@@ -26,21 +26,7 @@ class DataLogger:
     
     # ========== AI CHAT (UPDATED) ==========
     
-    def start_chat(self, uid: str, pid: str, code_context: str = None, error_context: str = None):
-        """
-        Start new AI chat session.
-        Returns session_id.
-        """
-        data = {
-            'uid': uid,
-            'pid': pid,
-            'code_context': code_context,
-            'error_context': error_context
-        }
-        result = self.supabase.table('ai_chat_sessions').insert(data).execute()
-        return result.data[0]['id'] if result.data else None
-    
-    def add_message(self, session_id: str, role: str, content: str, code_snapshot: str = None):
+    def add_message(self, uid: str, pid:str, role: str, content: str, code_context: str = None, error_context: str = None):
         """
         Add a single message to chat session.
         
@@ -52,18 +38,20 @@ class DataLogger:
             logger.add_message(session_id, 'assistant', 'Your code is O(n^2)...')
         """
         data = {
-            'session_id': session_id,
+            'uid': uid,
+            'pid': pid,
             'role': role,  # 'user' or 'assistant'
             'content': content,
-            'code_snapshot': code_snapshot
+            'code_context': code_context,
+            'error_context': error_context,
         }
         return self.supabase.table('ai_chat_messages').insert(data).execute()
     
-    def get_chat_history(self, session_id: str):
+    def get_chat_history(self, uid: str):
         """Get all messages in a chat session."""
         result = self.supabase.table('ai_chat_messages')\
-            .select('role, content, code_snapshot, created_at')\
-            .eq('session_id', session_id)\
+            .select('role, content, code_context, created_at')\
+            .eq('uid', uid)\
             .order('created_at')\
             .execute()
         return result.data

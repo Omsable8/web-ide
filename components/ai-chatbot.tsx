@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { X, Send, Sparkles, Loader2, ChevronDown } from "lucide-react"
-import { sendChatMessage, setAIModel } from "@/lib/api"
+import { sendChatMessage, setAIModel, updateFeaturesUsed } from "@/lib/api"
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -33,6 +33,7 @@ export function AIChatbot({
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-20b:free")
+  const [aiUsed, setAiUsed] = useState<number>(0) // 0-1: 0=never, 1=used
   const [chatMode, setChatMode] = useState<ChatMode>("chat")
   const [showModeMenu, setShowModeMenu] = useState(false)
   const [showModelMenu, setShowModelMenu] = useState(false)
@@ -72,6 +73,8 @@ export function AIChatbot({
 
     try {
       const response = await sendChatMessage({
+        uid: localStorage.getItem('uid') || '',
+        pid: sessionStorage.getItem('problemID')||'',
         message: input,
         code: codeContext,
         error: outputContext,
@@ -82,6 +85,8 @@ export function AIChatbot({
         content: response.response,
       }
       setMessages((prev) => [...prev, aiMessage])
+      updateFeaturesUsed(localStorage.getItem('uid')||'', sessionStorage.getItem('problemID')||'', {ai_used:1},{ai_used:aiUsed})
+      setAiUsed(1)
     } catch (error) {
       console.error("[v0] Chat error:", error)
       const errorMessage: Message = {

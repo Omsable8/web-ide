@@ -16,6 +16,8 @@ export interface ExecuteCodeResponse {
 }
 
 export interface ChatRequest {
+  uid: string
+  pid:string
   message: string
   code?: string
   error?: string
