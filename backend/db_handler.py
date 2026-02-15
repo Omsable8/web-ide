@@ -8,6 +8,7 @@ import os
 from supabase import create_client
 
 from auth_handler import AuthHandler
+from data_logger import DataLogger
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -199,6 +200,27 @@ def get_profile():
             'success': False,
             'error': 'User not found'
         }), 404
+    
+@app.route('/api/features/update', methods=['POST'])
+def store_features_usage():
+    """Helper to store feature usage in DB"""
+    try:
+
+        datalogger = DataLogger(supabase)
+        
+        data = request.get_json()
+        uid = data.get('uid')
+        pid = data.get('pid')
+        features = data.get('features', {})
+        
+        data = {'uid': uid,'pid': pid,"debug_btn":None, "ai_used":None, "hints":None, "performance_analyzer":None, "custom_tc":None, "dev_preferences":None}
+        for key in features.keys():
+            data[key] = features.get(key)
+        datalogger.log_feature(**data)
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        print(f"[ERROR] Store feature usage failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 # ============================================================================
 # DSA Problems Endpoints
 # ============================================================================

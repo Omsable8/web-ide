@@ -1,6 +1,7 @@
 """
 Updated Data Logger - Separate AI messages (industry standard)
 """
+from typing import Optional
 from supabase import Client
 from datetime import datetime
 
@@ -69,15 +70,17 @@ class DataLogger:
     
     # ========== FEATURE USAGE ==========
     
-    def log_feature(self, uid: str, pid: str, hints: int = 0, debug_btn: int = 0,
-                   performance_analyzer: int = 0, ai_used: int = 0,
-                   custom_tc: int = 0, dev_preferences: dict = None):
+    def log_feature(self, uid: str, pid: str, hints:Optional[int], debug_btn: Optional[int],
+                   performance_analyzer: Optional[int], ai_used: Optional[int],
+                   custom_tc: Optional[int], dev_preferences: Optional[dict]):
         """Log or update feature usage."""
-        data = {
-            'uid': uid, 'pid': pid, 'hints': hints, 'debug_btn': debug_btn,
-            'performance_analyzer': performance_analyzer, 'ai_used': ai_used,
-            'custom_tc': custom_tc, 'dev_preferences': dev_preferences
-        }
+        data = {'uid': uid, 'pid': pid}
+        for key, value in [('hints', hints), ('debug_btn', debug_btn),
+                         ('performance_analyzer', performance_analyzer),
+                         ('ai_used', ai_used), ('custom_tc', custom_tc),('dev_preferences', dev_preferences)]:
+            if value is not None:
+                data[key] = value
+        print("Logging feature usage:", data)  # Debug print
         self.supabase.table('feature_usage').upsert(data, on_conflict='uid,pid').execute()
 
 

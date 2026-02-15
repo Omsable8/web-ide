@@ -87,7 +87,7 @@ export function AIChatbot({
       const errorMessage: Message = {
         role: "assistant",
         content:
-          "Sorry, I encountered an error. Please make sure the Flask backend is running on http://localhost:5000",
+          "Sorry, I encountered an error. Please make sure the Flask backend is running on http://localhost:5002",
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {

@@ -430,29 +430,46 @@ export async function updateFeaturesUsed(
   initialFeatures: FeaturesUsed
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Check if we need to update - only if initial value was 0 or null
-    const needsUpdate: FeaturesUsed = {}
+    const needsUpdate: Partial<FeaturesUsed> = {}
 
-    if (features.hints !== undefined && (initialFeatures.hints === 0 || initialFeatures.hints === null)) {
+    // Helper to check if a numeric feature has increased
+    // We check if current > initial to avoid overwriting with lower values (race conditions)
+    // OR if initial was null/undefined
+    const hasIncreased = (current: number | undefined, initial: number | undefined | null) => {
+      if (current === undefined) return false
+      const safeInitial = initial ?? 0
+      return current > safeInitial
+    }
+
+    // 1. Numeric Counters (Hints, AI, Custom TCs, etc.)
+    // Logic: Only update if the count has INCREASED
+    if (hasIncreased(features.hints, initialFeatures.hints)) {
       needsUpdate.hints = features.hints
     }
-    if (features.debug_btn !== undefined && (initialFeatures.debug_btn === 0 || initialFeatures.debug_btn === null)) {
-      needsUpdate.debug_btn = features.debug_btn
-    }
-    if (features.performance_analyzer !== undefined && (initialFeatures.performance_analyzer === 0 || initialFeatures.performance_analyzer === null)) {
-      needsUpdate.performance_analyzer = features.performance_analyzer
-    }
-    if (features.ai_used !== undefined && (initialFeatures.ai_used === 0 || initialFeatures.ai_used === null)) {
+    if (hasIncreased(features.ai_used, initialFeatures.ai_used)) {
       needsUpdate.ai_used = features.ai_used
     }
-    if (features.custom_tc !== undefined && (initialFeatures.custom_tc === 0 || initialFeatures.custom_tc === null)) {
+    if (hasIncreased(features.custom_tc, initialFeatures.custom_tc)) {
       needsUpdate.custom_tc = features.custom_tc
     }
-    if (features.dev_preferences !== undefined && !initialFeatures.dev_preferences) {
+
+    // 2. Boolean/Binary Flags (Debug Button, Performance Analyzer)
+    // Logic: Update if it changed from falsy (0/null) to truthy (1)
+    if (features.debug_btn && !initialFeatures.debug_btn) {
+      needsUpdate.debug_btn = features.debug_btn
+    }
+    if (features.performance_analyzer && !initialFeatures.performance_analyzer) {
+      needsUpdate.performance_analyzer = features.performance_analyzer
+    }
+
+    // 3. Preferences (Strings/Objects)
+    // Logic: Update if the value is different
+    if (features.dev_preferences !== undefined && 
+        features.dev_preferences !== initialFeatures.dev_preferences) {
       needsUpdate.dev_preferences = features.dev_preferences
     }
 
-    // If nothing needs updating, skip the backend call
+    // If nothing valid changed, skip the call
     if (Object.keys(needsUpdate).length === 0) {
       return { success: true }
     }

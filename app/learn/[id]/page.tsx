@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import { PerformanceAnalyzer } from '@/components/performance-analyzer'
 import { useDebugger } from '@/hooks/use-debugger'
 import { ProtectedRoute } from '@/components/protected-route'
 import { useAuth } from '@/lib/auth-context'
+import { features } from 'process'
 
 interface Problem {
   id: string
@@ -109,9 +110,14 @@ function ProblemDetailPage() {
   const [code, setCode] = useState('')
   const [language, setLanguage] = useState('python')
   const [showHints, setShowHints] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false })
+
   const [hintsUsed, setHintsUsed] = useState<number>(0) // 0-3: 0=never, 1=level1, 2=level2, 3=level3
   const [debuggerUsed, setDebuggerUsed] = useState<number>(0) // 0-1: 0=never, 1=used
   const [aiUsed, setAiUsed] = useState<number>(0) // 0-1: 0=never, 1=used
+  const [complexityUsed, setComplexityUsed] = useState<number>(0) // 0-1: 0=never, 1=used
+  const [devprefUsed, setDevPrefUsed ] = useState<number>(0) // 0-1: 0=never, 1=used
+  const [customTcUsed, setCustomTcUsed ] = useState<number>(0) // 0-1: 0=never, 1=used
+
   const [activeTab, setActiveTab] = useState<'description' | 'testcases'>('description')
   const [chatbotWidth, setChatbotWidth] = useState(320)
   const [showChatbot, setShowChatbot] = useState(true)
@@ -276,6 +282,14 @@ function ProblemDetailPage() {
     if (!code.trim()) return
     setIsDebugging(true)
     setShowDebugWindow(true)
+    setDebuggerUsed(1)
+    const uid = localStorage.getItem('uid') || ''
+    try {
+      await updateFeaturesUsed(uid,problemId,{debug_btn:1},{debug_btn:debuggerUsed})
+      setDebuggerUsed(1)
+    } catch (error) {
+        console.error('[v0] Failed to update hints usage:', error)
+    }
     try {
       // Build stdin string from the first test case
       // const stdin = '1\n2 2\n1 1 1\n0 0 0\n1 1 1\n1\n1\n2'  // Example: t=1, then input for 1 test case
@@ -322,6 +336,8 @@ function ProblemDetailPage() {
   const handleAnalyzeComplexity = async () => {
     if (!code.trim()) return
     setAnalyzingComplexity(true)
+    updateFeaturesUsed(localStorage.getItem('uid')||'', problemId, {performance_analyzer:1},{performance_analyzer:complexityUsed})
+    setComplexityUsed(1)
     try {
       const result = await analyzeComplexity(code, language)
       if (result.success && result.analysis) {
@@ -437,12 +453,17 @@ function ProblemDetailPage() {
             <Bug className="w-4 h-4" />
             Debug
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setShowDevPreferences(true)} className="text-foreground hover:text-accent">
+          <Button size="sm" variant="ghost" onClick={() => {
+            setShowDevPreferences(true); 
+            
+            updateFeaturesUsed(localStorage.getItem('uid')||'',problemId,{dev_preferences:1},{dev_preferences:devprefUsed});
+            setDevPrefUsed(1);
+            }} className="text-foreground hover:text-accent">
             <Settings className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setShowChatbot(!showChatbot)} className="text-foreground hover:text-accent">
+          {/* <Button size="sm" variant="ghost" onClick={() => setShowChatbot(!showChatbot)} className="text-foreground hover:text-accent">
             AI Hints
-          </Button>
+          </Button> */}
         </div>
       </header>
 
@@ -522,7 +543,11 @@ function ProblemDetailPage() {
                 <div className="border-t border-border pt-4 mt-4">
                   <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
                   <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
-                  <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => setShowChatbot(true)}>
+                  <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => {
+                    setShowChatbot(true);
+                    updateFeaturesUsed(localStorage.getItem('uid')||'', problemId, {ai_used:1},{ai_used:aiUsed})
+                    setAiUsed(1)
+                    }}>
                     Open AI Assistant
                   </Button>
                 </div>
@@ -545,6 +570,9 @@ function ProblemDetailPage() {
                         input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
                       },
                     ])
+                    const uid = localStorage.getItem('uid')||''
+                    updateFeaturesUsed(uid,problemId,{custom_tc:1},{custom_tc:customTcUsed})
+                    setCustomTcUsed(1)
                   }}
                   onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
                   onUpdateCustomTestCase={(index, testCase) => {
