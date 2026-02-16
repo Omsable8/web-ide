@@ -1,32 +1,54 @@
-"""
-Updated Data Logger - Separate AI messages (industry standard)
-"""
-from typing import Optional
-from supabase import Client
-from datetime import datetime
-
+# backend/data_logger.py
+from database import execute_write
+import json
 
 class DataLogger:
-    def __init__(self, supabase_client: Client = None):
-        self.supabase: Client = supabase_client
-    
-    # ========== CODE SUBMISSIONS ==========
-    
-    def log_submission(self, uid: str, pid: str, code: str, language: str,
-                      error: str, num_pass: int, num_fail: int, btn: str,
-                      passed_tc: list = None, failed_tc: list = None,
-                      runtime_ms: int = None, memory_mb: float = None):
-        """Log code submission."""
-        data = {
-            'uid': uid, 'pid': pid, 'code': code, 'language': language,
-            'error': error, 'num_pass_tc': num_pass, 'num_fail_tc': num_fail,
-            'btn': btn, 'passed_tc': passed_tc or [], 'failed_tc': failed_tc or []
+    def __init__(self, db_client=None):
+        pass 
+
+    def log_feature(self, uid, pid, **kwargs):
+
+        """Log or update feature usage using PostgreSQL UPSERT."""
+        valid_fields = {k: v for k, v in kwargs.items() if v is not None}
+        if not valid_fields: return
+        
+        # Build SQL dynamically based on what fields were sent
+        columns = ", ".join(valid_fields.keys())
+        values_placeholders = ", ".join([f":{k}" for k in valid_fields.keys()])
+        update_logic = ", ".join([f"{k} = EXCLUDED.{k}" for k in valid_fields.keys()])
+        
+        sql = f"""
+        INSERT INTO feature_usage (uid, pid, {columns})
+        VALUES (:uid, :pid, {values_placeholders})
+        ON CONFLICT (uid, pid) 
+        DO UPDATE SET {update_logic};
+        """
+        
+        params = valid_fields
+        params['uid'] = uid
+        params['pid'] = pid
+        
+        # Serialize dicts if necessary (like dev_preferences)
+        if 'dev_preferences' in params and isinstance(params['dev_preferences'], dict):
+             params['dev_preferences'] = json.dumps(params['dev_preferences'])
+
+        execute_write(sql, params)
+
+    def log_submission(self, uid, pid, code, language, error, num_pass, num_fail, btn, passed_tc=None, failed_tc=None):
+        sql = """
+        INSERT INTO user_code_submissions 
+        (uid, pid, code, language, error, num_pass_tc, num_fail_tc, btn, passed_tc, failed_tc)
+        VALUES (:uid, :pid, :code, :lang, :err, :pass, :fail, :btn, :ptc, :ftc)
+        """
+        params = {
+            'uid': uid, 'pid': pid, 'code': code, 'lang': language, 
+            'err': error, 'pass': num_pass, 'fail': num_fail, 'btn': btn,
+            'ptc': json.dumps(passed_tc or []),
+            'ftc': json.dumps(failed_tc or [])
         }
-        return self.supabase.table('user_code_submissions').insert(data).execute()
-    
-    # ========== AI CHAT (UPDATED) ==========
-    
-    def add_message(self, uid: str, pid:str, role: str, content: str, code_context: str = None, error_context: str = None):
+        execute_write(sql, params)
+
+    def add_message(self, uid, pid, role, content, code_context=None, error_context=None):
         """
         Add a single message to chat session.
         
@@ -37,77 +59,11 @@ class DataLogger:
             # AI response
             logger.add_message(session_id, 'assistant', 'Your code is O(n^2)...')
         """
-        data = {
-            'uid': uid,
-            'pid': pid,
-            'role': role,  # 'user' or 'assistant'
-            'content': content,
-            'code_context': code_context,
-            'error_context': error_context,
-        }
-        return self.supabase.table('ai_chat_messages').insert(data).execute()
-    
-    def get_chat_history(self, uid: str):
-        """Get all messages in a chat session."""
-        result = self.supabase.table('ai_chat_messages')\
-            .select('role, content, code_context, created_at')\
-            .eq('uid', uid)\
-            .order('created_at')\
-            .execute()
-        return result.data
-    
-    # ========== FEATURE USAGE ==========
-    
-    def log_feature(self, uid: str, pid: str, hints:Optional[int], debug_btn: Optional[int],
-                   performance_analyzer: Optional[int], ai_used: Optional[int],
-                   custom_tc: Optional[int], dev_preferences: Optional[dict]):
-        """Log or update feature usage."""
-        data = {'uid': uid, 'pid': pid}
-        for key, value in [('hints', hints), ('debug_btn', debug_btn),
-                         ('performance_analyzer', performance_analyzer),
-                         ('ai_used', ai_used), ('custom_tc', custom_tc),('dev_preferences', dev_preferences)]:
-            if value is not None:
-                data[key] = value
-        print("Logging feature usage:", data)  # Debug print
-        self.supabase.table('feature_usage').upsert(data, on_conflict='uid,pid').execute()
-
-
-# ========== USAGE EXAMPLES ==========
-
-"""
-logger = DataLogger(SUPABASE_URL, SUPABASE_KEY)
-
-# Code submission
-logger.log_submission(uid, pid, code, 'python', 'none', 5, 0, 'test')
-
-# AI Chat - UPDATED
-@socketio.on('ai_chat_start')
-def chat_start(data):
-    session_id = logger.start_chat(
-        uid=user_id,
-        pid=data['problem_id'],
-        code_context=data.get('code'),
-        error_context=data.get('error')
-    )
-    emit('chat_ready', {'session_id': session_id})
-
-@socketio.on('ai_message')
-def handle_message(data):
-    session_id = data['session_id']
-    user_msg = data['message']
-    current_code = data.get('code')
-    
-    # Log user message
-    logger.add_message(session_id, 'user', user_msg, current_code)
-    
-    # Get AI response
-    ai_resp = get_ai_response(user_msg, current_code)
-    
-    # Log AI response
-    logger.add_message(session_id, 'assistant', ai_resp)
-    
-    emit('ai_response', {'message': ai_resp})
-
-# Feature usage
-logger.log_feature(uid, pid, hints=1, debug_btn=1)
-"""
+        sql = """
+        INSERT INTO ai_chat_messages (uid, pid, role, content, code_context)
+        VALUES (:uid, :pid, :role, :content, :ctx)
+        """
+        execute_write(sql, {
+            'uid': uid, 'pid': pid, 'role': role, 
+            'content': content, 'ctx': code_context
+        })

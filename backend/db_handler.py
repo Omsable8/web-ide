@@ -5,21 +5,18 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit, disconnect
 from config import Config
 import os
-from supabase import create_client
 
 from auth_handler import AuthHandler
 from data_logger import DataLogger
+from database import execute_read, execute_write
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
-SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 
-auth = AuthHandler(SUPABASE_URL, SUPABASE_KEY)
-supabase = create_client(SUPABASE_URL,SUPABASE_KEY)
+auth = AuthHandler() # No client needed anymore
 
 # --- Cached Helper Functions ---
 
@@ -27,34 +24,60 @@ supabase = create_client(SUPABASE_URL,SUPABASE_KEY)
 def _fetch_template_from_db(problem_id, language):
     """Helper to cache template based on BOTH ID and Language"""
     print(f"[CACHE MISS] Fetching template for {problem_id} - {language}")
-    return supabase.table('code_templates').select('*')\
-        .eq('problem_id', problem_id).eq('language', language).single().execute()
+    rows = execute_read(
+        "SELECT * FROM code_templates WHERE problem_id = :pid AND language = :lang",
+        {"pid": problem_id, "lang": language}
+    )
+    return {"data": rows[0] if rows else None}
 
-@lru_cache(maxsize=10) # Increased size to handle (10 problems * 3 languages)
+@lru_cache(maxsize=10)
 def _fetch_hints_from_db(problem_id):
     """Helper to cache hints based on ID"""
     print(f"[CACHE MISS] Fetching hints for {problem_id}")
-    return supabase.table('hints').select('*').eq('problem_id', problem_id).single().execute()
+    
+    query = "SELECT * FROM hints WHERE problem_id = :pid"
+    rows = execute_read(query, {"pid": problem_id})
+    
+    # Supabase .single() returns one dict. We replicate that structure.
+    return {"data": rows[0] if rows else None}
 
 @lru_cache(maxsize=20)
 def _fetch_testcases_from_db(problem_id):
     print(f"[CACHE MISS] Fetching testcases {problem_id}")
-    return supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
-
-@lru_cache(maxsize=10)
-def _fetch_problem_from_db(problem_id):
-    print(f"[CACHE MISS] Fetching problem {problem_id}")
-    return supabase.table('problems').select('*').eq('id', problem_id).single().execute()
+    
+    query = "SELECT * FROM test_cases WHERE problem_id = :pid"
+    rows = execute_read(query, {"pid": problem_id})
+    
+    # Supabase returns a list of rows
+    return {"data": rows}
 
 @lru_cache(maxsize=10)
 def _fetch_problems_from_db(difficulty=None, category=None):
     print(f"[CACHE MISS] Fetching problems with difficulty={difficulty}, category={category}")
-    query = supabase.table('problems').select('*')
+    
+    # Start with a base query
+    query = "SELECT * FROM problems WHERE 1=1"
+    params = {}
+    
+    # Dynamically append filters
     if difficulty:
-        query = query.eq('difficulty', difficulty)
+        query += " AND difficulty = :diff"
+        params['diff'] = difficulty
     if category:
-        query = query.eq('category', category)
-    return query.execute()
+        query += " AND category = :cat"
+        params['cat'] = category
+        
+    rows = execute_read(query, params)
+    
+    return {"data": rows}
+
+@lru_cache(maxsize=10)
+def _fetch_problem_from_db(problem_id):
+    print(f"[CACHE MISS] Fetching problem {problem_id}")
+    rows = execute_read("SELECT * FROM problems WHERE id = :pid", {"pid": problem_id})
+    # Supabase returns {data: ...}, so we mock that structure to keep API consistent
+    return {"data": rows[0] if rows else None}
+
 
 # ============================================================================
 # Health Check
@@ -181,32 +204,14 @@ def require_auth(f):
     return decorated_function
 
 
-# Example protected route
-@app.route('/api/user/profile', methods=['GET'])
-@require_auth
-def get_profile():
-    '''Get current user profile (protected route)'''
-    user_id = request.user_id
-    
-    result = auth.supabase.table('user_profiles').select('uid, name, email, cohort, created_at').eq('uid', user_id).execute()
-    
-    if result.data:
-        return jsonify({
-            'success': True,
-            'user': result.data[0]
-        }), 200
-    else:
-        return jsonify({
-            'success': False,
-            'error': 'User not found'
-        }), 404
+
     
 @app.route('/api/features/update', methods=['POST'])
 def store_features_usage():
     """Helper to store feature usage in DB"""
     try:
 
-        datalogger = DataLogger(supabase)
+        datalogger = DataLogger()
         
         data = request.get_json()
         uid = data.get('uid')
@@ -237,9 +242,9 @@ def get_problems():
         
         problems = _fetch_problems_from_db(difficulty, category)
 
-        if not problems.data:
+        if not problems['data']:
             return jsonify({"success": False, "error": "Problem not found"}), 404
-        return jsonify({"success": True, "problems": problems.data})
+        return jsonify({"success": True, "problems": problems['data']})
         
     except Exception as e:
         print(f"[ERROR] Get problems failed: {str(e)}")
@@ -252,10 +257,10 @@ def get_problem(problem_id):
         
         problem = _fetch_problem_from_db(problem_id)
         
-        if not problem.data:
+        if not problem["data"]:
             return jsonify({"success": False, "error": "Problem not found"}), 404
         
-        return jsonify({"success": True, "problem": problem.data})
+        return jsonify({"success": True, "problem": problem["data"]})
         
     except Exception as e:
         print(f"[ERROR] Get problem failed: {str(e)}")
@@ -268,10 +273,10 @@ def get_hints(problem_id):
         
         hints_response = _fetch_hints_from_db(problem_id)
         
-        if not hints_response.data:
+        if not hints_response['data']:
             return jsonify({"success": False, "error": "No hints found"}), 404
         
-        hints_data = hints_response.data.get('hints_data', [])
+        hints_data = hints_response['data'].get('hints_data', [])
         
         # Ensure hints_data is parsed if it's a string
         if isinstance(hints_data, str):
@@ -289,7 +294,7 @@ def get_test_cases(problem_id):
     try:
 
         test_cases_response = _fetch_testcases_from_db(problem_id)
-        test_cases = test_cases_response.data
+        test_cases = test_cases_response['data']
         
         # Separate public and private test cases
         public_tests = []
@@ -338,12 +343,12 @@ def get_template(problem_id):
         
         template = _fetch_template_from_db(problem_id, language)
         
-        if not template.data:
+        if not template['data']:
             return jsonify({"success": False, "error": "Template not found for this language"}), 404
         
         return jsonify({
             "success": True,
-            "template": template.data
+            "template": template['data']
         })
         
     except Exception as e:

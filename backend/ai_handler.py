@@ -1,7 +1,6 @@
 import traceback
 from flask import Flask, app, jsonify, request
 from flask_cors import CORS
-from supabase import create_client
 import os
 
 from ai_chatbot import AIChatbot
@@ -17,9 +16,6 @@ ai_chatbot = AIChatbot(model=Config.AI_MODEL, api_key=Config.OPENAI_API_KEY)
 # Validate configuration
 Config.validate()
 
-SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-supabase = create_client(SUPABASE_URL,SUPABASE_KEY)
 
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
@@ -35,7 +31,7 @@ def ai_chat():
             return jsonify({"success": False, "error": "No message provided"}), 400
         
         response = ai_chatbot.get_response(message, code_context, error_context)
-        datalogger = DataLogger(supabase_client=supabase)
+        datalogger = DataLogger()
         datalogger.add_message(uid=uid, pid=pid,role= 'user',content= message,code_context= code_context,error_context= error_context)
         datalogger.add_message(uid=uid,pid= pid, role='assistant', content=response)
         return jsonify({

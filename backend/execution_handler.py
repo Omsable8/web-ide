@@ -2,8 +2,7 @@ import json
 import traceback
 from flask import Flask, app, request, jsonify
 from flask_cors import CORS
-from supabase import create_client
-import os
+import requests
 
 from config import Config
 from code_executor import CodeExecutor
@@ -13,10 +12,6 @@ app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
-
-supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-supabase = create_client(supabase_url, supabase_key)
 
 # ============================================================================
 # Code Execution Endpoints
@@ -32,21 +27,6 @@ def run_code():
         language = data.get('language', 'python')
         input_data = data.get('input', None)
 
-        # from supabase import create_client
-        # import os
-        # import json
-        # supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-        # supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        # supabase = create_client(supabase_url, supabase_key)
-        
-        # # Get template with driver_code and solution_code
-        # template_response = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
-        
-        # if not template_response.data:
-        #     return jsonify({"success": False, "error": f"No template found for {language}"}), 404
-        
-        # template = template_response.data
-        # driver_code = template.get('driver_code', '')
         
         if not code:
             return jsonify({"success": False, "error": "No code provided"}), 400
@@ -75,19 +55,22 @@ def run_tests(problem_id):
         
         
         # Get template with driver_code and solution_code
-        template_response = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
+        template_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/template?language={language}")
+        if not template_response.status_code == 200:
+            return jsonify({"success": False, "error": f"No template found for {language}"}), 401
         
-        if not template_response.data:
-            return jsonify({"success": False, "error": f"No template found for {language}"}), 404
-        
-        template = template_response.data
+        template = template_response.json().get('template')
         driver_code = template.get('driver_code', '')
         solution_code = template.get('solution_code', '')
         
         # Get only public test cases
-        test_cases_response = supabase.table('test_cases').select('*').eq('problem_id', problem_id).eq('is_hidden', False).execute()
-        test_cases = test_cases_response.data #PUBLIC + PRIVATE
+        test_cases_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/test-cases")
+        if not test_cases_response.status_code == 200:
+            return jsonify({"success": False, "error": f"No Testcases found for {problem_id}"}), 401
         
+        public_test_cases = test_cases_response.json().get('public_test_cases') #PUBLIC
+        private_test_cases = test_cases_response.json().get('private_test_cases') #PRIVATE
+        test_cases = public_test_cases # Only run against public test cases for "Run Tests" endpoint
         # Flatten all test cases
         all_test_inputs = [] # list of list of jsons
         test_metadata = []
@@ -156,7 +139,7 @@ def run_tests(problem_id):
                 fail_tc.append(r['test_id'])
             elif not r['passed'] and r['type'] == 'custom':
                 fail_tc.append(r['input_params'])
-        logger = DataLogger(supabase)
+        logger = DataLogger()
         logger.log_submission(
             uid=user_id,
             pid=problem_id,
@@ -198,19 +181,22 @@ def submit_code(problem_id):
             return jsonify({"success": False, "error": "No code provided"}), 400
         
         # Get template with driver_code and solution_code
-        template_response = supabase.table('code_templates').select('*').eq('problem_id', problem_id).eq('language', language).single().execute()
+        template_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/template?language={language}")
+        if not template_response.status_code == 200:
+            return jsonify({"success": False, "error": f"No template found for {language}"}), 401
         
-        if not template_response.data:
-            return jsonify({"success": False, "error": f"No template found for {language}"}), 404
-        
-        template = template_response.data
+        template = template_response.json().get('template')
         driver_code = template.get('driver_code', '')
         solution_code = template.get('solution_code', '')
         
         # Get both public and private test cases
-        test_cases_response = supabase.table('test_cases').select('*').eq('problem_id', problem_id).execute()
-        test_cases = test_cases_response.data
+        test_cases_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/test-cases")
+        if not test_cases_response.status_code == 200:
+            return jsonify({"success": False, "error": f"No Testcases found for {problem_id}"}), 401
         
+        public_test_cases = test_cases_response.json().get('public_test_cases', [])
+        private_test_cases = test_cases_response.json().get('private_test_cases', [])
+        test_cases = public_test_cases + private_test_cases
         # Flatten all test cases (public + private)
         all_test_inputs = []
         test_metadata = []
@@ -271,7 +257,7 @@ def submit_code(problem_id):
                 fail_tc.append(r['test_id'])
             elif not r['passed'] and r['type'] == 'custom':
                 fail_tc.append(r['input_params'])
-        logger = DataLogger(supabase)
+        logger = DataLogger()
         logger.log_submission(
             uid=user_id,
             pid=problem_id,

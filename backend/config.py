@@ -16,6 +16,9 @@ class Config:
     AIPORT = int(os.getenv('AIPORT', 5002))
     DEBUGPORT = int(os.getenv('DEBUGPORT', 5003))
     
+    # AWS RDS Connection
+    # Ensure your .env has: DATABASE_URL=postgresql://user:pass@host:5432/dbname
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
     # AI settings
     AI_MODEL = os.getenv('AI_MODEL', 'gpt-4')
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
