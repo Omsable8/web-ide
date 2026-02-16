@@ -367,25 +367,6 @@ export function MonacoEditorInstance({
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={handleRunCode}
-              disabled={isExecuting}
-            >
-              {isExecuting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Running...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Run
-                </>
-              )}
-            </Button>
-
-            <Button
-              size="sm"
               variant="outline"
               className="gap-2 bg-transparent"
               onClick={async () => {
@@ -418,12 +399,34 @@ export function MonacoEditorInstance({
       </div>
       {/* Input Panel */}
       <div className="border-b border-border bg-muted/50 p-3">
-        <button
-          onClick={() => setShowInputPanel(!showInputPanel)}
-          className="text-xs text-muted-foreground hover:text-foreground mb-2"
-        >
-          {showInputPanel ? "▼" : "▶"} Input (Optional)
-        </button>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <button
+            onClick={() => setShowInputPanel(!showInputPanel)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            {showInputPanel ? "▼" : "▶"} Input (Optional)
+          </button>
+          {showRunButton && userInput.trim() && (
+            <Button
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={handleRunCode}
+              disabled={isExecuting}
+            >
+              {isExecuting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run
+                </>
+              )}
+            </Button>
+          )}
+        </div>
         {showInputPanel && (
           <textarea
             value={userInput}
