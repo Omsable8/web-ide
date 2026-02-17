@@ -1,9 +1,8 @@
 """
 Fixed Flask-SocketIO debug server with proper DAP flow and disconnect handling
 """
-import eventlet
-eventlet.monkey_patch()
-
+from gevent import monkey; monkey.patch_all()
+import gevent
 from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
@@ -20,7 +19,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}}, supports_credentials=True)
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins=Config.CORS_ORIGINS, async_mode='eventlet', logger=True, engineio_logger=False)
+socketio = SocketIO(app, cors_allowed_origins=Config.CORS_ORIGINS, async_mode='gevent', logger=True, engineio_logger=False)
 
 # Global session manager
 session_manager = DebugSessionManager(port_range_start=5678, port_range_end=6678)
@@ -221,8 +220,8 @@ def handle_start_debug(data):
                 traceback.print_exc()
                 socketio.emit('debug_error', {'error': str(e)}, room=sid)
         
-        # Run in eventlet greenthread
-        eventlet.spawn(start_debugger_async)
+        # Run in gevent greenthread
+        gevent.spawn(start_debugger_async)
     
     except Exception as e:
         print(f"[SERVER] ERROR in handle_start_debug: {e}")

@@ -3,8 +3,11 @@ Base Debug Adapter with extensive debugging and proper DAP flow
 """
 import shutil
 import traceback
-import eventlet
-from eventlet.green import socket, subprocess, threading, time
+import gevent
+from gevent import socket, subprocess, time
+from gevent.queue import Queue
+from gevent.event import Event
+from gevent.lock import Semaphore
 import json
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Callable
@@ -59,13 +62,13 @@ class BaseDebugAdapter(ABC):
         self.state = DebuggerState.DISCONNECTED
         
         # Threading
-        self.message_queue = eventlet.Queue()
+        self.message_queue = Queue()
         self.listener_greenlet = None
-        self.stop_event = eventlet.Event()
-        self.dap_initialized_event = eventlet.Event()
+        self.stop_event = Event()
+        self.dap_initialized_event = Event()
         # Response tracking
-        self.pending_responses: Dict[int, eventlet.Queue] = {}
-        self.response_lock = eventlet.semaphore.Semaphore()
+        self.pending_responses: Dict[int, Queue] = {}
+        self.response_lock = Semaphore()
         
         # DAP state
         self.thread_id: Optional[int] = None
@@ -117,7 +120,7 @@ class BaseDebugAdapter(ABC):
         
         # 3. Start message listener greenlet
         self.log("Starting message listener...")
-        self.listener_greenlet = eventlet.spawn(self._message_listener)
+        self.listener_greenlet = gevent.spawn(self._message_listener)
         
         # 4. Perform DAP initialization
         self.log("Initializing DAP protocol...")
@@ -367,14 +370,14 @@ class BaseDebugAdapter(ABC):
             
             # 2. Unblock any waiting threads
             if not self.stop_event.ready():
-                self.stop_event.send()
+                self.stop_event.set() # Unblock listener
             if not self.dap_initialized_event.ready():
-                self.dap_initialized_event.send(False) # Fail any pending inits
+                self.dap_initialized_event.set() # Fail any pending inits
 
             # 3. Graceful DAP Disconnect (Try-Catch everything)
             if self.sock:
                 try:
-                    with eventlet.Timeout(0.2):
+                    with gevent.Timeout(0.2):
                         self._send_request("disconnect", {"restart": False, "terminateDebuggee": True})
                 except: pass
                 
@@ -386,7 +389,7 @@ class BaseDebugAdapter(ABC):
             if self.process:
                 try:
                     self.process.terminate()
-                    eventlet.sleep(0.1)
+                    gevent.sleep(0.1)
                     if self.process.poll() is None:
                         self.process.kill()
                 except: pass
@@ -394,7 +397,7 @@ class BaseDebugAdapter(ABC):
 
             # 5. Kill Listener Greenlet
             if self.listener_greenlet:
-                try: eventlet.kill(self.listener_greenlet)
+                try: gevent.kill(self.listener_greenlet)
                 except: pass
                 self.listener_greenlet = None
 
@@ -428,7 +431,7 @@ class BaseDebugAdapter(ABC):
                     except:
                         pass
                 retry_count += 1
-                eventlet.sleep(0.2)
+                gevent.sleep(0.2)
         
         self.log(f"Connection failed after {retry_count} retries")
         return False
@@ -483,10 +486,10 @@ class BaseDebugAdapter(ABC):
         
         # Rely purely on the event. If this fires, we are good.
         try:
-            with eventlet.Timeout(5.0):
+            with gevent.Timeout(5.0):
                 self.dap_initialized_event.wait()
                 self.log("Received 'initialized' signal")
-        except eventlet.Timeout:
+        except gevent.Timeout:
             self.log("CRITICAL ERROR: Timeout waiting for 'initialized' event.")
             return False
         self.log("DAP initialization complete (configurationDone will be sent later)")
@@ -531,7 +534,7 @@ class BaseDebugAdapter(ABC):
         }
         
         # Create response queue for this request
-        response_queue = eventlet.Queue()
+        response_queue = Queue()
         with self.response_lock:
             self.pending_responses[request_seq] = response_queue
         
@@ -551,14 +554,14 @@ class BaseDebugAdapter(ABC):
         
         # Wait for response
         try:
-            with eventlet.Timeout(timeout):
+            with gevent.Timeout(timeout):
                 response = response_queue.get()
                 with self.response_lock:
                     if request_seq in self.pending_responses:
                         del self.pending_responses[request_seq]
                 # self.log(f"Received: {command} response")
                 return response
-        except eventlet.Timeout:
+        except gevent.Timeout:
             self.log(f"TIMEOUT waiting for {command} response")
             with self.response_lock:
                 if request_seq in self.pending_responses:
@@ -568,13 +571,13 @@ class BaseDebugAdapter(ABC):
     def _wait_for_event(self, event_name: str, timeout: float = 5.0) -> Optional[DAPMessage]:
         """Wait for a specific event"""
         try:
-            with eventlet.Timeout(timeout):
+            with gevent.Timeout(timeout):
                 while True:
                     msg = self.message_queue.get()
                     if msg.type == "event" and msg.event == event_name:
                         return msg
                     self.message_queue.put(msg)
-        except eventlet.Timeout:
+        except gevent.Timeout:
             return None
     
     def _message_listener(self):
@@ -588,7 +591,7 @@ class BaseDebugAdapter(ABC):
                 try:
                     chunk = self.sock.recv(4096)
                 except socket.timeout:
-                    eventlet.sleep(0)
+                    gevent.sleep(0)
                     continue
                 except (ConnectionResetError, BrokenPipeError):
                     self.log("Connection reset by peer (Process exited?)")
@@ -624,7 +627,7 @@ class BaseDebugAdapter(ABC):
                         continue
             
             except socket.timeout:
-                eventlet.sleep(0)
+                gevent.sleep(0)
                 continue
             except Exception as e:
                 if not self.stop_event.ready():
@@ -689,11 +692,11 @@ class BaseDebugAdapter(ABC):
             if self.on_event:
                 def fetch_and_emit():
                     # Small sleep to ensure debugpy is ready
-                    eventlet.sleep(0.01)
+                    gevent.sleep(0.01)
                     state = self.get_current_state()
                     self.on_event('stopped', {'reason': reason, 'state': state})
                 
-                eventlet.spawn(fetch_and_emit)
+                gevent.spawn(fetch_and_emit)
         
         elif event_name == "continued":
             self.state = DebuggerState.RUNNING
@@ -721,7 +724,7 @@ class BaseDebugAdapter(ABC):
             self.log("INITIALIZED event received - signaling ready")
             # FIX: Signal the waiting thread directly
             if not self.dap_initialized_event.ready():
-                self.dap_initialized_event.send(True)
+                self.dap_initialized_event.set()
 
         elif event_name == "debugpySockets":
             # FIX: Explicitly ignore this to prevent log spam
