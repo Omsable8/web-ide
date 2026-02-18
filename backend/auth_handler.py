@@ -48,7 +48,7 @@ class AuthHandler:
         # 3. Insert User
         # Note: We rely on the DB to generate the UUID (DEFAULT gen_random_uuid())
         sql = """
-        INSERT INTO users (name, email, password_hash) 
+        INSERT INTO user_profiles (name, email, password_hash) 
         VALUES (:name, :email, :pw) 
         RETURNING uid
         """

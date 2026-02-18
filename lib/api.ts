@@ -169,7 +169,7 @@ export async function runTests(
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; error?: string }> {
   try {
     const userId = localStorage.getItem('uid');
-    const response = await fetch(`${API_BASE_EXE_URL}/api/problems/${problemId}/run-tests`, {
+    const response = await fetch(`${API_BASE_EXE_URL}/service/execute/problems/${problemId}/run-tests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language, custom_tests,userId}),
@@ -194,7 +194,7 @@ export async function submitCode(
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; accepted?: boolean; error?: string }> {
   try {
     const userId = localStorage.getItem('uid');
-    const response = await fetch(`${API_BASE_EXE_URL}/api/problems/${problemId}/submit`, {
+    const response = await fetch(`${API_BASE_EXE_URL}/service/execute/problems/${problemId}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language, custom_tests,userId }),
@@ -214,7 +214,7 @@ export async function submitCode(
 // Execute code on remote server
 export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteCodeResponse> {
   try {
-    const response = await fetch(`${API_BASE_EXE_URL}/api/code/run`, {
+    const response = await fetch(`${API_BASE_EXE_URL}/service/execute/code/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -234,7 +234,7 @@ export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteC
 // Send message to AI chatbot
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/api/ai/chat`, {
+    const response = await fetch(`${API_BASE_AI_URL}/service/ai/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -253,7 +253,7 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
 
 export async function setAIModel(model: string): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/api/ai/set-model`, {
+    const response = await fetch(`${API_BASE_AI_URL}/service/ai/set-model`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model }),
@@ -273,7 +273,7 @@ export async function setAIModel(model: string): Promise<{ success: boolean; mes
 // Analyze code for issues
 export async function analyzeCode(code: string, language: string) {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/api/ai/analyze`, {
+    const response = await fetch(`${API_BASE_AI_URL}/service/ai/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language }),
@@ -288,7 +288,7 @@ export async function analyzeCode(code: string, language: string) {
 // Explain test case failure
 export async function explainTestFailure(expected: string, actual: string, input: string) {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/api/ai/explain-failure`, {
+    const response = await fetch(`${API_BASE_AI_URL}/service/ai/explain-failure`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ expected, actual, input }),
@@ -303,7 +303,7 @@ export async function explainTestFailure(expected: string, actual: string, input
 // Clear chat history
 export async function clearChatHistory() {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/api/ai/clear`, {
+    const response = await fetch(`${API_BASE_AI_URL}/service/ai/clear`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })
@@ -396,7 +396,7 @@ export async function getHints(problemId: string): Promise<{ success: boolean; h
 
 export async function analyzeComplexity(code: string, language: string) {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/api/code/complexity`, {
+    const response = await fetch(`${API_BASE_AI_URL}/service/ai/code/complexity`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language }),

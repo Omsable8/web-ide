@@ -363,9 +363,9 @@ def index():
         "version": "1.0.0",
         "execution_model": "Local (Direct execution via subprocess)",
         "endpoints": {
-            "code": ["/api/code/run", "/api/code/complexity"],
-            "problems": ["/api/problems", "/api/problems/<id>", "/api/problems/<id>/test-cases", "/api/problems/<id>/hints", "/api/problems/<id>/run-tests", "/api/problems/<id>/submit"],
-            "ai": ["/api/ai/chat", "/api/ai/set-model", "/api/ai/analyze", "/api/ai/explain-failure", "/api/ai/clear"],
+            "execute": ["/service/execute/code/run", "/service/execute/problems/<id>/run-tests", "/service/execute/problems/<id>/submit"],
+            "problems": ["/api/problems", "/api/problems/<id>", "/api/problems/<id>/test-cases", "/api/problems/<id>/hints"],
+            "ai": ["/service/ai/chat", "/service/ai/set-model", "/service/ai/analyze", "/service/ai/explain-failure", "/service/ai/clear","/service/ai/code/complexity"],
             "health": ["/api/health"]
         }
     })

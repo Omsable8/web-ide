@@ -17,7 +17,7 @@ CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 # Code Execution Endpoints
 # ============================================================================
 
-@app.route('/api/code/run', methods=['POST'])
+@app.route('/service/execute/code/run', methods=['POST'])
 def run_code():
     """Execute code locally and return output"""
     
@@ -39,7 +39,7 @@ def run_code():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/problems/<problem_id>/run-tests', methods=['POST'])
+@app.route('/service/execute/problems/<problem_id>/run-tests', methods=['POST'])
 def run_tests(problem_id):
     """Run user code against public test cases only using stdin/stdout"""
     
@@ -165,7 +165,7 @@ def run_tests(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/problems/<problem_id>/submit', methods=['POST'])
+@app.route('/service/execute/problems/<problem_id>/submit', methods=['POST'])
 def submit_code(problem_id):
     """Submit user code against public + private test cases using stdin/stdout"""
     

@@ -170,7 +170,7 @@ export function AIChatbot({
             </Button>
             {showModeMenu && (
               <div className="absolute bottom-full mb-1 left-0 bg-card border border-border rounded shadow-lg z-10">
-                {(["chat", "explain-failure", "analyze", "clear"] as ChatMode[]).map((mode) => (
+                {(["chat", "clear"] as ChatMode[]).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => handleModeChange(mode)}

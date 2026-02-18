@@ -17,7 +17,7 @@ ai_chatbot = AIChatbot(model=Config.AI_MODEL, api_key=Config.OPENAI_API_KEY)
 Config.validate()
 
 
-@app.route('/api/ai/chat', methods=['POST'])
+@app.route('/service/ai/chat', methods=['POST'])
 def ai_chat():
     """Send message to AI chatbot with optional code and error context"""
     try:
@@ -45,7 +45,7 @@ def ai_chat():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/ai/set-model', methods=['POST'])
+@app.route('/service/ai/set-model', methods=['POST'])
 def set_model():
     """Set the AI model to use"""
     try:
@@ -64,7 +64,7 @@ def set_model():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/ai/analyze', methods=['POST'])
+@app.route('/service/ai/analyze', methods=['POST'])
 def analyze_code():
     """Analyze code for potential issues"""
     try:
@@ -82,7 +82,7 @@ def analyze_code():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/ai/explain-failure', methods=['POST'])
+@app.route('/service/ai/explain-failure', methods=['POST'])
 def explain_failure():
     """Explain test case failure"""
     try:
@@ -98,7 +98,7 @@ def explain_failure():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/ai/clear', methods=['POST'])
+@app.route('/service/ai/clear', methods=['POST'])
 def clear_chat():
     """Clear chat history"""
     try:
@@ -108,7 +108,7 @@ def clear_chat():
         return jsonify({"success": False, "error": str(e)}), 500
     
 
-@app.route('/api/code/complexity', methods=['POST'])
+@app.route('/service/ai/code/complexity', methods=['POST'])
 def analyze_complexity():
     """Analyze time and space complexity of code using AI"""
     try:
