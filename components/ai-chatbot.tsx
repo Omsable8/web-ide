@@ -230,7 +230,7 @@ export function AIChatbot({
                   onClick={() => handleModelChange("openai/gpt-4o-mini")}
                   className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
                   >
-                  openai/gpt-5-nano
+                  openai/gpt-4o-mini
                 </button> 
               </div>
             )}

@@ -440,10 +440,10 @@ function ProblemDetailPage() {
           </Button>
           <span
             className={`text-xs px-2 py-1 rounded font-semibold ${problem.difficulty === 'Easy'
-                ? 'text-green-500 bg-green-500/10'
-                : problem.difficulty === 'Medium'
-                  ? 'text-yellow-500 bg-yellow-500/10'
-                  : 'text-red-500 bg-red-500/10'
+              ? 'text-green-500 bg-green-500/10'
+              : problem.difficulty === 'Medium'
+                ? 'text-yellow-500 bg-yellow-500/10'
+                : 'text-red-500 bg-red-500/10'
               }`}
           >
             {problem.difficulty}
@@ -490,116 +490,114 @@ function ProblemDetailPage() {
             style={{ width: `${leftPanelWidth}px` }}
             className="flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0"
           >
-            <div className="flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0">
-              <div className="flex-1 overflow-y-auto p-4">
-                {/* Tabs */}
-                <div className="flex gap-2 mb-4 border-b border-border">
-                  <button
-                    onClick={() => setActiveTab('description')}
-                    className={`px-3 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
-                  >
-                    Description
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('testcases')}
-                    className={`px-3 py-2 text-sm font-medium ${activeTab === 'testcases' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
-                  >
-                    Test Cases
-                  </button>
-                </div>
-
-                {/* Description Tab */}
-                {activeTab === 'description' && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="font-semibold text-accent mb-3">Description</h3>
-                      <div className="bg-background/50 p-4 rounded border border-border max-h-96 overflow-y-auto">
-                        <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{problem.description}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold text-accent mb-2">Examples</h3>
-                      <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
-                        {problem.examples}
-                      </pre>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold text-accent mb-2">Constraints</h3>
-                      <p className="text-muted-foreground text-sm whitespace-pre-wrap">{problem.constraints}</p>
-                    </div>
-
-                    {/* Hints */}
-                    <div className="space-y-2 border-t border-border pt-4">
-                      {hints.map((hint) => (
-                        <div key={hint.level} className="bg-background/30 rounded border border-border">
-                          <button
-                            onClick={() => handleToggleHint(hint.level, !showHints[hint.level])}
-                            className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Lightbulb className="w-4 h-4 text-accent" />
-                              <span className="font-medium text-sm">
-                                Hint {hint.level}: {hint.title}
-                              </span>
-                            </div>
-                            {showHints[hint.level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-
-                          {showHints[hint.level] && (
-                            <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
-                              {hint.content}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* AI Dynamic Help */}
-                    <div className="border-t border-border pt-4 mt-4">
-                      <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
-                      <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
-                      <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => {
-                        setShowChatbot(true);
-
-                      }}>
-                        Open AI Assistant
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Test Cases Tab */}
-                {activeTab === 'testcases' && (
-                  <div className="space-y-3">
-                    <StructuredTestCases
-                      testCases={testCases}
-                      testResults={testResults}
-                      customTestCases={customTestCases}
-                      onAddCustomTestCase={() => {
-                        if (testCases.length === 0) return
-                        setCustomTestCases([
-                          ...customTestCases,
-                          {
-                            id: `custom-${Date.now()}`,
-                            input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
-                          },
-                        ])
-                        const uid = localStorage.getItem('uid') || ''
-                        updateFeaturesUsed(uid, problemId, { custom_tc: 1 }, { custom_tc: customTcUsed })
-                        setCustomTcUsed(1)
-                      }}
-                      onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
-                      onUpdateCustomTestCase={(index, testCase) => {
-                        const newCustom = [...customTestCases]
-                        newCustom[index] = testCase
-                        setCustomTestCases(newCustom)
-                      }}
-                    />
-                  </div>
-                )}
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Tabs */}
+              <div className="flex gap-2 mb-4 border-b border-border">
+                <button
+                  onClick={() => setActiveTab('description')}
+                  className={`px-3 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+                >
+                  Description
+                </button>
+                <button
+                  onClick={() => setActiveTab('testcases')}
+                  className={`px-3 py-2 text-sm font-medium ${activeTab === 'testcases' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+                >
+                  Test Cases
+                </button>
               </div>
+
+              {/* Description Tab */}
+              {activeTab === 'description' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold text-accent mb-3">Description</h3>
+                    <div className="bg-background/50 p-4 rounded border border-border max-h-96 overflow-y-auto">
+                      <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{problem.description}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-accent mb-2">Examples</h3>
+                    <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
+                      {problem.examples}
+                    </pre>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-accent mb-2">Constraints</h3>
+                    <p className="text-muted-foreground text-sm whitespace-pre-wrap">{problem.constraints}</p>
+                  </div>
+
+                  {/* Hints */}
+                  <div className="space-y-2 border-t border-border pt-4">
+                    {hints.map((hint) => (
+                      <div key={hint.level} className="bg-background/30 rounded border border-border">
+                        <button
+                          onClick={() => handleToggleHint(hint.level, !showHints[hint.level])}
+                          className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Lightbulb className="w-4 h-4 text-accent" />
+                            <span className="font-medium text-sm">
+                              Hint {hint.level}: {hint.title}
+                            </span>
+                          </div>
+                          {showHints[hint.level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+
+                        {showHints[hint.level] && (
+                          <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
+                            {hint.content}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* AI Dynamic Help */}
+                  <div className="border-t border-border pt-4 mt-4">
+                    <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
+                    <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
+                    <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => {
+                      setShowChatbot(true);
+
+                    }}>
+                      Open AI Assistant
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Test Cases Tab */}
+              {activeTab === 'testcases' && (
+                <div className="space-y-3">
+                  <StructuredTestCases
+                    testCases={testCases}
+                    testResults={testResults}
+                    customTestCases={customTestCases}
+                    onAddCustomTestCase={() => {
+                      if (testCases.length === 0) return
+                      setCustomTestCases([
+                        ...customTestCases,
+                        {
+                          id: `custom-${Date.now()}`,
+                          input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
+                        },
+                      ])
+                      const uid = localStorage.getItem('uid') || ''
+                      updateFeaturesUsed(uid, problemId, { custom_tc: 1 }, { custom_tc: customTcUsed })
+                      setCustomTcUsed(1)
+                    }}
+                    onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
+                    onUpdateCustomTestCase={(index, testCase) => {
+                      const newCustom = [...customTestCases]
+                      newCustom[index] = testCase
+                      setCustomTestCases(newCustom)
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
