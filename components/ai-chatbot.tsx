@@ -212,17 +212,17 @@ export function AIChatbot({
                 >
                   openai/gpt-oss
                 </button>
-                <button
-                  onClick={() => handleModelChange("google/gemma-2-9b-it:free")}
+                {/* <button
+                  onClick={() => handleModelChange("google/gemma-3-27b-it:free")}
                   className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
                   >
-                  google/gemma-2
-                </button>
+                  google/gemma-3-27b-it
+                </button> */}
                 <button
-                  onClick={() => handleModelChange("google/gemini-2.0-flash-exp:free")}
+                  onClick={() => handleModelChange("stepfun/step-3.5-flash:free")}
                   className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
                   >
-                  google/gemini-2.0-flash-exp
+                  stepfun/step-3.5-flash
                 </button>
               </div>
             )}
