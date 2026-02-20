@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X, Bug } from 'lucide-react'
 import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate, updateFeaturesUsed, getFeaturesUsed } from '@/lib/api'
-import { MonacoEditorInstance} from '@/components/monaco-editor-instance'
+import { MonacoEditorInstance } from '@/components/monaco-editor-instance'
 import { AIChatbot } from '@/components/ai-chatbot'
 import { StructuredTestCases } from '@/components/structured-test-cases'
 import { SubmissionModal } from '@/components/submission-modal'
@@ -78,7 +78,7 @@ async function fetchWithCache<T>(
   }
 
   const data = await fetcher()
-  
+
   if (data) {
     try {
       sessionStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }))
@@ -86,7 +86,7 @@ async function fetchWithCache<T>(
       console.warn("Session storage write error:", e)
     }
   }
-  
+
   return data
 }
 export default function ProblemDetailPageWrapper() {
@@ -114,8 +114,8 @@ function ProblemDetailPage() {
   const [hintsUsed, setHintsUsed] = useState<number>(0) // 0-3: 0=never, 1=level1, 2=level2, 3=level3
   const [debuggerUsed, setDebuggerUsed] = useState<number>(0) // 0-1: 0=never, 1=used
   const [complexityUsed, setComplexityUsed] = useState<number>(0) // 0-1: 0=never, 1=used
-  const [devprefUsed, setDevPrefUsed ] = useState<number>(0) // 0-1: 0=never, 1=used
-  const [customTcUsed, setCustomTcUsed ] = useState<number>(0) // 0-1: 0=never, 1=used
+  const [devprefUsed, setDevPrefUsed] = useState<number>(0) // 0-1: 0=never, 1=used
+  const [customTcUsed, setCustomTcUsed] = useState<number>(0) // 0-1: 0=never, 1=used
 
   const [activeTab, setActiveTab] = useState<'description' | 'testcases'>('description')
   const [chatbotWidth, setChatbotWidth] = useState(320)
@@ -135,7 +135,9 @@ function ProblemDetailPage() {
   const [isDebugging, setIsDebugging] = useState(false)
   const [breakpoints, setBreakpoints] = useState<number[]>([])
   const [currentExecutionLine, setCurrentExecutionLine] = useState<number | null>(null)
-
+  // Inside ProblemDetailPage component
+  const [leftPanelWidth, setLeftPanelWidth] = useState(384) // Default 96 (w-96)
+  const [showLeftPanel, setShowLeftPanel] = useState(true)
   const handleToggleHint = async (hintLevel: number, isOpening: boolean) => {
     // Update UI
     setShowHints((prev) => ({ ...prev, [hintLevel]: !prev[hintLevel] }))
@@ -177,10 +179,10 @@ function ProblemDetailPage() {
   }, [debugState.line])
 
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  
+
   // Ref to hold the latest code for the interval to read without re-triggering
   const codeRef = useRef(code)
-  
+
   // Keep codeRef in sync
   useEffect(() => {
     codeRef.current = code
@@ -189,11 +191,11 @@ function ProblemDetailPage() {
   // LOGIC: Load Code (Storage -> Cache -> DB) & Setup Auto-Save
   useEffect(() => {
     const storageKey = `autosave_${problemId}_${language}`
-    
+
     const loadCode = async () => {
       // 1. Try LocalStorage First (User's draft)
       const savedCode = localStorage.getItem(storageKey)
-      
+
       if (savedCode) {
         console.log(`[AutoSave] Restored from local storage for ${language}`)
         setCode(savedCode)
@@ -206,8 +208,8 @@ function ProblemDetailPage() {
         cacheKey,
         async () => {
           const templateRes = await getTemplate(problemId, language)
-          return (templateRes.success && templateRes.template?.template_code) 
-            ? templateRes.template.template_code 
+          return (templateRes.success && templateRes.template?.template_code)
+            ? templateRes.template.template_code
             : ""
         }
       )
@@ -261,7 +263,7 @@ function ProblemDetailPage() {
         setTestResults(publicResults)
         setCodeContext(code)
         setActiveTab('testcases')
-        
+
         // Store submission result and show modal
         setSubmissionResult({
           total: result.total_tests,
@@ -284,10 +286,10 @@ function ProblemDetailPage() {
     setDebuggerUsed(1)
     const uid = localStorage.getItem('uid') || ''
     try {
-      await updateFeaturesUsed(uid,problemId,{debug_btn:1},{debug_btn:debuggerUsed})
+      await updateFeaturesUsed(uid, problemId, { debug_btn: 1 }, { debug_btn: debuggerUsed })
       setDebuggerUsed(1)
     } catch (error) {
-        console.error('[v0] Failed to update hints usage:', error)
+      console.error('[v0] Failed to update hints usage:', error)
     }
     try {
       // Build stdin string from the first test case
@@ -314,8 +316,8 @@ function ProblemDetailPage() {
         cacheKey,
         async () => {
           const templateRes = await getTemplate(problemId, language)
-          return (templateRes.success && templateRes.template?.template_code) 
-            ? templateRes.template.template_code 
+          return (templateRes.success && templateRes.template?.template_code)
+            ? templateRes.template.template_code
             : ""
         }
       )
@@ -335,7 +337,7 @@ function ProblemDetailPage() {
   const handleAnalyzeComplexity = async () => {
     if (!code.trim()) return
     setAnalyzingComplexity(true)
-    updateFeaturesUsed(localStorage.getItem('uid')||'', problemId, {performance_analyzer:1},{performance_analyzer:complexityUsed})
+    updateFeaturesUsed(localStorage.getItem('uid') || '', problemId, { performance_analyzer: 1 }, { performance_analyzer: complexityUsed })
     setComplexityUsed(1)
     try {
       const result = await analyzeComplexity(code, language)
@@ -371,7 +373,7 @@ function ProblemDetailPage() {
           return problemRes.success ? problemRes.problem : null
         }
       )
-      if (problemData){
+      if (problemData) {
         setProblem(problemData)
         sessionStorage.setItem('problemID', problemData.id)
       }
@@ -427,14 +429,22 @@ function ProblemDetailPage() {
           </Link>
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           <h1 className="text-lg font-semibold text-accent">{problem.title}</h1>
+          {/* Inside the Header's first div, next to the Title */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowLeftPanel(!showLeftPanel)}
+            className="p-1 h-8 w-8"
+          >
+            {showLeftPanel ? <ChevronDown className="rotate-90" /> : <ChevronDown className="-rotate-90" />}
+          </Button>
           <span
-            className={`text-xs px-2 py-1 rounded font-semibold ${
-              problem.difficulty === 'Easy'
+            className={`text-xs px-2 py-1 rounded font-semibold ${problem.difficulty === 'Easy'
                 ? 'text-green-500 bg-green-500/10'
                 : problem.difficulty === 'Medium'
                   ? 'text-yellow-500 bg-yellow-500/10'
                   : 'text-red-500 bg-red-500/10'
-            }`}
+              }`}
           >
             {problem.difficulty}
           </span>
@@ -455,11 +465,11 @@ function ProblemDetailPage() {
             Debug
           </Button>
           <Button size="sm" variant="ghost" onClick={() => {
-            setShowDevPreferences(true); 
-            
-            updateFeaturesUsed(localStorage.getItem('uid')||'',problemId,{dev_preferences:1},{dev_preferences:devprefUsed});
+            setShowDevPreferences(true);
+
+            updateFeaturesUsed(localStorage.getItem('uid') || '', problemId, { dev_preferences: 1 }, { dev_preferences: devprefUsed });
             setDevPrefUsed(1);
-            }} className="text-foreground hover:text-accent">
+          }} className="text-foreground hover:text-accent">
             <Settings className="w-4 h-4" />
           </Button>
           {/* <Button size="sm" variant="ghost" onClick={() => setShowChatbot(!showChatbot)} className="text-foreground hover:text-accent">
@@ -473,119 +483,149 @@ function ProblemDetailPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden gap-1 p-1 bg-background">
-        {/* Left Panel - Problem Description and Hints */}
-        <div className="w-96 flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0">
-          <div className="flex-1 overflow-y-auto p-4">
-            {/* Tabs */}
-            <div className="flex gap-2 mb-4 border-b border-border">
-              <button
-                onClick={() => setActiveTab('description')}
-                className={`px-3 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
-              >
-                Description
-              </button>
-              <button
-                onClick={() => setActiveTab('testcases')}
-                className={`px-3 py-2 text-sm font-medium ${activeTab === 'testcases' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
-              >
-                Test Cases
-              </button>
-            </div>
 
-            {/* Description Tab */}
-            {activeTab === 'description' && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold text-accent mb-3">Description</h3>
-                  <div className="bg-background/50 p-4 rounded border border-border max-h-96 overflow-y-auto">
-                    <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{problem.description}</p>
-                  </div>
+        {/* Updated Left Panel */}
+        {showLeftPanel && (
+          <div
+            style={{ width: `${leftPanelWidth}px` }}
+            className="flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0"
+          >
+            <div className="flex flex-col border-r border-border overflow-hidden bg-card/30 flex-shrink-0">
+              <div className="flex-1 overflow-y-auto p-4">
+                {/* Tabs */}
+                <div className="flex gap-2 mb-4 border-b border-border">
+                  <button
+                    onClick={() => setActiveTab('description')}
+                    className={`px-3 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+                  >
+                    Description
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('testcases')}
+                    className={`px-3 py-2 text-sm font-medium ${activeTab === 'testcases' ? 'text-accent border-b-2 border-accent' : 'text-muted-foreground'}`}
+                  >
+                    Test Cases
+                  </button>
                 </div>
 
-                <div>
-                  <h3 className="font-semibold text-accent mb-2">Examples</h3>
-                  <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
-                    {problem.examples}
-                  </pre>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-accent mb-2">Constraints</h3>
-                  <p className="text-muted-foreground text-sm whitespace-pre-wrap">{problem.constraints}</p>
-                </div>
-
-                {/* Hints */}
-                <div className="space-y-2 border-t border-border pt-4">
-                  {hints.map((hint) => (
-                    <div key={hint.level} className="bg-background/30 rounded border border-border">
-                      <button
-                        onClick={() => handleToggleHint(hint.level, !showHints[hint.level])}
-                        className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Lightbulb className="w-4 h-4 text-accent" />
-                          <span className="font-medium text-sm">
-                            Hint {hint.level}: {hint.title}
-                          </span>
-                        </div>
-                        {showHints[hint.level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-
-                      {showHints[hint.level] && (
-                        <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
-                          {hint.content}
-                        </div>
-                      )}
+                {/* Description Tab */}
+                {activeTab === 'description' && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="font-semibold text-accent mb-3">Description</h3>
+                      <div className="bg-background/50 p-4 rounded border border-border max-h-96 overflow-y-auto">
+                        <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{problem.description}</p>
+                      </div>
                     </div>
-                  ))}
-                </div>
 
-                {/* AI Dynamic Help */}
-                <div className="border-t border-border pt-4 mt-4">
-                  <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
-                  <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
-                  <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => {
-                    setShowChatbot(true);
-                    
-                    }}>
-                    Open AI Assistant
-                  </Button>
-                </div>
-              </div>
-            )}
+                    <div>
+                      <h3 className="font-semibold text-accent mb-2">Examples</h3>
+                      <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
+                        {problem.examples}
+                      </pre>
+                    </div>
 
-            {/* Test Cases Tab */}
-            {activeTab === 'testcases' && (
-              <div className="space-y-3">
-                <StructuredTestCases
-                  testCases={testCases}
-                  testResults={testResults}
-                  customTestCases={customTestCases}
-                  onAddCustomTestCase={() => {
-                    if (testCases.length === 0) return
-                    setCustomTestCases([
-                      ...customTestCases,
-                      {
-                        id: `custom-${Date.now()}`,
-                        input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
-                      },
-                    ])
-                    const uid = localStorage.getItem('uid')||''
-                    updateFeaturesUsed(uid,problemId,{custom_tc:1},{custom_tc:customTcUsed})
-                    setCustomTcUsed(1)
-                  }}
-                  onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
-                  onUpdateCustomTestCase={(index, testCase) => {
-                    const newCustom = [...customTestCases]
-                    newCustom[index] = testCase
-                    setCustomTestCases(newCustom)
-                  }}
-                />
+                    <div>
+                      <h3 className="font-semibold text-accent mb-2">Constraints</h3>
+                      <p className="text-muted-foreground text-sm whitespace-pre-wrap">{problem.constraints}</p>
+                    </div>
+
+                    {/* Hints */}
+                    <div className="space-y-2 border-t border-border pt-4">
+                      {hints.map((hint) => (
+                        <div key={hint.level} className="bg-background/30 rounded border border-border">
+                          <button
+                            onClick={() => handleToggleHint(hint.level, !showHints[hint.level])}
+                            className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Lightbulb className="w-4 h-4 text-accent" />
+                              <span className="font-medium text-sm">
+                                Hint {hint.level}: {hint.title}
+                              </span>
+                            </div>
+                            {showHints[hint.level] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+
+                          {showHints[hint.level] && (
+                            <div className="px-3 pb-3 text-sm text-muted-foreground border-t border-border pt-2">
+                              {hint.content}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* AI Dynamic Help */}
+                    <div className="border-t border-border pt-4 mt-4">
+                      <div className="text-sm font-semibold text-accent mb-2">Dynamic AI Help</div>
+                      <p className="text-xs text-muted-foreground mb-3">Get personalized assistance from AI based on your code and test results.</p>
+                      <Button size="sm" className="w-full bg-accent hover:bg-accent/90" onClick={() => {
+                        setShowChatbot(true);
+
+                      }}>
+                        Open AI Assistant
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Test Cases Tab */}
+                {activeTab === 'testcases' && (
+                  <div className="space-y-3">
+                    <StructuredTestCases
+                      testCases={testCases}
+                      testResults={testResults}
+                      customTestCases={customTestCases}
+                      onAddCustomTestCase={() => {
+                        if (testCases.length === 0) return
+                        setCustomTestCases([
+                          ...customTestCases,
+                          {
+                            id: `custom-${Date.now()}`,
+                            input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
+                          },
+                        ])
+                        const uid = localStorage.getItem('uid') || ''
+                        updateFeaturesUsed(uid, problemId, { custom_tc: 1 }, { custom_tc: customTcUsed })
+                        setCustomTcUsed(1)
+                      }}
+                      onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}
+                      onUpdateCustomTestCase={(index, testCase) => {
+                        const newCustom = [...customTestCases]
+                        newCustom[index] = testCase
+                        setCustomTestCases(newCustom)
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
+        {/* Insert this between the Left Panel and Middle Panel */}
+        {showLeftPanel && (
+          <div
+            onMouseDown={(e) => {
+              const startX = e.clientX
+              const startWidth = leftPanelWidth
 
+              const handleMouseMove = (e: MouseEvent) => {
+                const delta = e.clientX - startX
+                setLeftPanelWidth(Math.max(250, Math.min(600, startWidth + delta)))
+              }
+
+              const handleMouseUp = () => {
+                document.removeEventListener('mousemove', handleMouseMove)
+                document.removeEventListener('mouseup', handleMouseUp)
+              }
+
+              document.addEventListener('mousemove', handleMouseMove)
+              document.addEventListener('mouseup', handleMouseUp)
+            }}
+            className="w-0.5 bg-border hover:bg-accent cursor-col-resize transition-colors"
+          />
+        )}
         {/* Middle Panel - Code Editor with Debug Window below */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-hidden">
