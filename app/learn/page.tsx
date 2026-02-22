@@ -127,9 +127,9 @@ function LearnPage() {
             <h1 className="text-2xl font-bold text-accent">Learn DSA</h1>
           </div>
           <nav className="flex items-center gap-6">
-            <Link href="/code" className="text-foreground hover:text-accent transition">
+            {/* <Link href="/code" className="text-foreground hover:text-accent transition">
               Practice
-            </Link>
+            </Link> */}
             <Link href="/compete" className="text-foreground hover:text-accent transition">
               Compete
             </Link>
