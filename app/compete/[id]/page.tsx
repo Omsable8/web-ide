@@ -11,6 +11,7 @@ import { StructuredTestCases } from '@/components/structured-test-cases'
 import { SubmissionModal } from '@/components/submission-modal'
 import { DebugWindow } from '@/components/debug-window'
 import { DevPreferences } from '@/components/dev-preferences'
+import { ExamplesDisplay } from '@/components/examples-display'
 import { PerformanceAnalyzer } from '@/components/performance-analyzer'
 import { useDebugger } from '@/hooks/use-debugger'
 import { ProtectedRoute } from '@/components/protected-route'
@@ -509,9 +510,7 @@ function ProblemDetailPage() {
 
                   <div>
                     <h3 className="font-semibold text-accent mb-2">Examples</h3>
-                    <pre className="bg-background/50 p-3 rounded text-xs text-muted-foreground overflow-x-auto border border-border">
-                      {problem.examples}
-                    </pre>
+                    <ExamplesDisplay examples={problem.examples} />
                   </div>
 
                   <div>
