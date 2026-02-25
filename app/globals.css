@@ -47,6 +47,33 @@
   --sidebar-ring: #2563EB;
 }
 
+/* Light mode compete page with reddish accents */
+.mode-compete {
+  /* ===== OPTION 1: Deep Red (Recommended - High contrast, professional) ===== */
+  /* --accent: #DC2626;
+  --accent-foreground: #FFFFFF;
+  --ring: #EF4444;
+  --primary: #DC2626; */
+
+  /* ===== OPTION 2: Crimson (Bold, aggressive, intense focus) ===== */
+  /* --accent: #E11D48;
+  --accent-foreground: #FFFFFF;
+  --ring: #F43F5E;
+  --primary: #E11D48; */
+
+  /* ===== OPTION 3: Orange-Red (Warm, energetic, stands out) ===== */
+  --accent: #EA580C;
+  --accent-foreground: #FFFFFF;
+  --ring: #FB923C;
+  --primary: #EA580C;
+
+  /* ===== OPTION 4: Ruby (Dark red, elegant contrast) ===== */
+  /* --accent: #BE123C;
+  --accent-foreground: #FFFFFF;
+  --ring: #F43F5E;
+  --primary: #BE123C; */
+}
+
 /* Dark mode for learn/home pages with blue theme */
 .dark {
   --background: #0F172A;
@@ -85,9 +112,47 @@
   --terminal-bg: #0F1419;
 }
 
-/* Compete page theme - to be differentiated later */
-.mode-compete {
-  /* Placeholder for future compete-specific theme */
+/* Compete page theme - with reddish accent colors for focus and contrast */
+.dark .mode-compete {
+  /* ===== OPTION 1: Deep Red (Recommended - High contrast, professional) ===== */
+  --accent: #DC2626;
+  --accent-foreground: #FFFFFF;
+  --ring: #EF4444;
+  --primary: #DC2626;
+
+  /* ===== OPTION 2: Crimson (Bold, aggressive, intense focus) ===== */
+  /* --accent: #E11D48;
+  --accent-foreground: #FFFFFF;
+  --ring: #F43F5E;
+  --primary: #E11D48; */
+
+  /* ===== OPTION 3: Orange-Red (Warm, energetic, stands out) ===== */
+  --accent: #EA580C;
+  --accent-foreground: #FFFFFF;
+  --ring: #FB923C;
+  --primary: #EA580C;
+
+  /* ===== OPTION 4: Ruby (Dark red, elegant contrast) ===== */
+  /* --accent: #BE123C;
+  --accent-foreground: #FFFFFF;
+  --ring: #F43F5E;
+  --primary: #BE123C; */
+
+  /* Keep background/foreground same as learn mode */
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --card: #1E293B;
+  --card-foreground: #F8FAFC;
+  --secondary: #0F172A;
+  --secondary-foreground: #F8FAFC;
+  --muted: #0F172A;
+  --muted-foreground: #94A3B8;
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: #334155;
+  --input: #0F172A;
+  --editor-bg: #1A2035;
+  --terminal-bg: #0F1419;
 }
 
 @theme inline {

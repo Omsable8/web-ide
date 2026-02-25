@@ -414,7 +414,7 @@ function ProblemDetailPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden mode-compete">
       {/* Header */}
       <header className="h-12 border-b border-border bg-card flex items-center justify-between px-4">
         <div className="flex items-center gap-3">

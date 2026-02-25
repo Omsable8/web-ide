@@ -8,8 +8,8 @@ import { AuthProvider } from "@/lib/auth-context"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "CodeLearning - Web IDE",
-  description: "Competitive Programming Environment with AI",
+  title: "MAPLE - Mode-based AI-assisted Programming and Learning Environment",
+  description: "Learn and compete with AI-assisted programming in different modes",
   generator: "v0.app",
 }
 

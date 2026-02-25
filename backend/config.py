@@ -20,7 +20,7 @@ class Config:
     # Ensure your .env has: DATABASE_URL=postgresql://user:pass@host:5432/dbname
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
     # AI settings
-    AI_MODEL = os.getenv('AI_MODEL', 'gpt-4')
+    AI_MODEL = os.getenv('AI_MODEL', 'openai/gpt-4o-mini')
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
     
     # CORS settings

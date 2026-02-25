@@ -28,7 +28,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Code2 className="w-8 h-8 text-accent" />
-            <h1 className="text-2xl font-bold text-accent">CodeLearning</h1>
+            <h1 className="text-2xl font-bold text-accent">MAPLE</h1>
           </div>
           <nav className="flex items-center gap-6">
             {isClient && user ? (
@@ -69,7 +69,7 @@ export default function Dashboard() {
       {/* Hero */}
       <section className="bg-gradient-to-br from-background to-card py-20">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <h2 className="text-5xl font-bold text-accent mb-4">Master DSA & Competitive Programming</h2>
+          <h2 className="text-5xl font-bold text-accent mb-4">Mode-based AI-assisted Programming and Learning Environment</h2>
           <p className="text-xl text-muted-foreground mb-8">Practice problems, get AI hints, and track your progress</p>
           {isClient && user ? (
             <div className="flex gap-4 justify-center">
@@ -129,7 +129,7 @@ export default function Dashboard() {
       {/* Footer */}
       <footer className="border-t border-border bg-card py-6 mt-16">
         <div className="max-w-7xl mx-auto px-6 text-center text-muted-foreground">
-          <p>© 2025 CodeLearning. Master DSA one problem at a time.</p>
+          <p>© 2025 MAPLE. Master DSA one problem at a time.</p>
         </div>
       </footer>
     </div>

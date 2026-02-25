@@ -124,12 +124,14 @@ def analyze_complexity():
 1. Time Complexity (Big O notation)
 2. Space Complexity (Big O notation)
 3. Brief explanation of your analysis
-
 Code:
 {code}
-
+NOTES:
+Give complexity for the given code only, do not assume any external factors or constraints.
 Provide response in JSON format with keys: time_complexity, space_complexity, explanation. 
-NOTE: DO NOT ADD ANY TEXT IN YOUR RESPONSE ONLY GIVE A VALID JSON. GIVE EMPTY JSON IN EVENT OF AN ERROR"""
+NOTE: DO NOT ADD ANY TEXT IN YOUR RESPONSE ONLY GIVE A VALID JSON. GIVE EMPTY JSON IN EVENT OF AN ERROR.
+
+"""
         
         complexity_analysis = ai_chatbot.get_response(prompt)
         

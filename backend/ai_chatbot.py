@@ -16,7 +16,7 @@ class Message:
 class AIChatbot:
     """AI Chatbot for helping with competitive programming and DSA"""
     
-    def __init__(self, model: str = "gpt-4", api_key: Optional[str] = None):
+    def __init__(self, model: str = "openai/gpt-4o-mini", api_key: Optional[str] = None):
         self.model = model
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.conversation_history: List[Message] = []

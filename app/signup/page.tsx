@@ -53,7 +53,7 @@ export default function SignupPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Code2 className="w-8 h-8 text-accent" />
-            <h1 className="text-2xl font-bold text-accent">CodeLearning</h1>
+            <h1 className="text-2xl font-bold text-accent">MAPLE</h1>
           </div>
           <p className="text-muted-foreground">Create your account</p>
         </div>
