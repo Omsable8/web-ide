@@ -4,32 +4,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Primary burgundy/wine colors */
-  --burgundy-deep: #662222;
-  --burgundy-wine: #842a3b;
-  --burgundy-rose: #a3485a;
-  --cream: #f5daa7;
+  /* Primary blue colors for learn/home pages */
+  --primary-blue: #2563EB;
+  --primary-blue-hover: #1D4ED8;
+  --secondary-blue: #3B82F6;
+  --background-light: #F1F5F9;
+  --surface-light: #FFFFFF;
 
-  /* Semantic tokens */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Semantic tokens - Learn/Home page defaults (light mode blue) */
+  --background: oklch(0.97 0 0);
+  --foreground: oklch(0.15 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.15 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+  --primary: #2563EB;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary-foreground: oklch(0.15 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: #3B82F6;
+  --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
+  --border: oklch(0.92 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #2563EB;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -37,51 +38,56 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.15 0 0);
+  --sidebar-primary: #2563EB;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-accent-foreground: oklch(0.15 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: #2563EB;
 }
 
-/* Updated dark theme to use the burgundy color palette */
+/* Dark mode for learn/home pages with blue theme */
 .dark {
-  --background: #1a0f0f;
-  --foreground: #f5daa7;
-  --card: #662222;
-  --card-foreground: #f5daa7;
-  --popover: #662222;
-  --popover-foreground: #f5daa7;
-  --primary: #842a3b;
-  --primary-foreground: #f5daa7;
-  --secondary: #3d1a1a;
-  --secondary-foreground: #f5daa7;
-  --muted: #3d1a1a;
-  --muted-foreground: #c4a57b;
-  --accent: #a3485a;
-  --accent-foreground: #f5daa7;
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --card: #1E293B;
+  --card-foreground: #F8FAFC;
+  --popover: #1E293B;
+  --popover-foreground: #F8FAFC;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #0F172A;
+  --secondary-foreground: #F8FAFC;
+  --muted: #0F172A;
+  --muted-foreground: #94A3B8;
+  --accent: #60A5FA;
+  --accent-foreground: #FFFFFF;
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: #4a2626;
-  --input: #3d1a1a;
-  --ring: #a3485a;
+  --border: #334155;
+  --input: #0F172A;
+  --ring: #60A5FA;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #662222;
-  --sidebar-foreground: #f5daa7;
-  --sidebar-primary: #842a3b;
-  --sidebar-primary-foreground: #f5daa7;
-  --sidebar-accent: #3d1a1a;
-  --sidebar-accent-foreground: #f5daa7;
-  --sidebar-border: #4a2626;
-  --sidebar-ring: #a3485a;
-  --editor-bg: #1a0f0f;
-  --terminal-bg: #0f0808;
+  --sidebar: #1E293B;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #0F172A;
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: #334155;
+  --sidebar-ring: #60A5FA;
+  --editor-bg: #1A2035;
+  --terminal-bg: #0F1419;
+}
+
+/* Compete page theme - to be differentiated later */
+.mode-compete {
+  /* Placeholder for future compete-specific theme */
 }
 
 @theme inline {

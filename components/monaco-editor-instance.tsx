@@ -98,28 +98,46 @@ export function MonacoEditorInstance({
 
             const monaco = (window as any).monaco
 
-            monaco.editor.defineTheme("custom-dark", {
+            monaco.editor.defineTheme("ide-dark", {
               base: "vs-dark",
               inherit: true,
               rules: [
-                { token: "comment", foreground: "8b6f47" },
-                { token: "string", foreground: "a3d5a3" },
+                { token: "comment", foreground: "8B93B0", fontStyle: "italic" },
+                { token: "keyword", foreground: "8B5CF6" },
+                { token: "string", foreground: "10B981" },
               ],
               colors: {
-                "editor.background": "#1a0f0f",
-                "editor.foreground": "#f5daa7",
-                "editor.lineNumbersBackground": "#3a2020",
-                "editor.lineNumbersForeground": "#8b6f47",
-                "editorCursor.foreground": "#f5daa7",
-                "editor.selectionBackground": "#a3485a80",
-                "editor.lineHighlightBackground": "#2a151515",
+                "editor.background": "#1A2035",
+                "editor.foreground": "#E8EAEF",
+                "editor.lineHighlightBackground": "#2D5BFF30",
+                "editorLineNumber.foreground": "#4A5568",
+                "editorCursor.foreground": "#2D5BFF",
+                "editor.selectionBackground": "#2D5BFF30",
+              },
+            })
+
+            monaco.editor.defineTheme("ide-light", {
+              base: "vs",
+              inherit: true,
+              rules: [
+                { token: "comment", foreground: "6B7280", fontStyle: "italic" },
+                { token: "keyword", foreground: "7C3AED" },
+                { token: "string", foreground: "059669" },
+              ],
+              colors: {
+                "editor.background": "#F8FAFC",
+                "editor.foreground": "#1E293B",
+                "editor.lineHighlightBackground": "#3B82F620",
+                "editorLineNumber.foreground": "#CBD5E1",
+                "editorCursor.foreground": "#3B82F6",
+                "editor.selectionBackground": "#3B82F620",
               },
             })
 
             const editor = monaco.editor.create(editorContainerRef.current, {
               value: code,
               language,
-              theme: "custom-dark",
+              theme: "ide-dark",
               fontSize: 14,
               fontFamily: '"Geist Mono", Monaco, Menlo, "Courier New", monospace',
               lineHeight: 24,
@@ -168,7 +186,41 @@ export function MonacoEditorInstance({
         editorInstanceRef.current = null
       }
     }
-  }, [])
+    }, [])
+
+  // Listen for theme changes from dev preferences
+  useEffect(() => {
+    const handleThemeChange = (e: any) => {
+      const theme = e.detail?.theme === 'light' ? 'ide-light' : 'ide-dark'
+      if (editorInstanceRef.current) {
+        (window as any).monaco?.editor.setTheme(theme)
+      }
+    }
+
+    const handleFontSizeChange = (e: any) => {
+      const fontSize = e.detail?.fontSize
+      if (editorInstanceRef.current && fontSize) {
+        editorInstanceRef.current.updateOptions({ fontSize })
+      }
+    }
+
+    window.addEventListener('editorThemeChange', handleThemeChange)
+    window.addEventListener('editorFontSizeChange', handleFontSizeChange)
+
+    // Apply saved theme and font size from localStorage
+    const savedTheme = localStorage.getItem('editorTheme') || 'dark'
+    const savedFontSize = localStorage.getItem('fontSize') || '14'
+    if (editorInstanceRef.current) {
+      const theme = savedTheme === 'light' ? 'ide-light' : 'ide-dark'
+      ;(window as any).monaco?.editor.setTheme(theme)
+      editorInstanceRef.current.updateOptions({ fontSize: parseInt(savedFontSize) })
+    }
+
+    return () => {
+      window.removeEventListener('editorThemeChange', handleThemeChange)
+      window.removeEventListener('editorFontSizeChange', handleFontSizeChange)
+    }
+  }, [isEditorReady])
 
   // Sync language when initialLanguage prop changes
   useEffect(() => {
@@ -274,23 +326,18 @@ export function MonacoEditorInstance({
 
     const editor = editorInstanceRef.current
     const mouseDownListener = editor.onMouseDown((e: any) => {
-      console.log("[v0] Mouse event target type:", e.target?.type, "Position:", e.target?.position)
-      
       // Check multiple possible gutter/margin click scenarios
       // type === 2 is glyph margin, type === 1 is line number area
       if ((e.target?.type === 1 || e.target?.type === 2) && e.target?.position?.lineNumber) {
         const line = e.target.position.lineNumber
-        console.log("[v0] Gutter clicked on line:", line, "Target type:", e.target.type)
         
         const newBreakpoints = [...breakpoints]
         const index = newBreakpoints.indexOf(line)
 
         if (index > -1) {
           newBreakpoints.splice(index, 1) // Remove breakpoint
-          console.log("[v0] Removed breakpoint from line:", line, "New breakpoints:", newBreakpoints)
         } else {
           newBreakpoints.push(line) // Add breakpoint
-          console.log("[v0] Added breakpoint at line:", line, "New breakpoints:", newBreakpoints)
         }
 
         onBreakpointsChange?.(newBreakpoints.sort((a, b) => a - b))

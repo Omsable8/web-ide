@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, BookOpen, Code, Zap, Keyboard } from 'lucide-react';
+import { X, BookOpen, Code, Zap, Keyboard, Settings } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Props {
@@ -40,8 +40,46 @@ const shortcuts = [
 ];
 
 export const DevPreferences: React.FC<Props> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'shortcuts' | 'syntax' | 'complexity'>('shortcuts');
+  const [activeTab, setActiveTab] = useState<'shortcuts' | 'syntax' | 'complexity' | 'editor'>('editor');
   const [language, setLanguage] = useState<'python' | 'cpp' | 'java'>('python');
+  const [editorTheme, setEditorTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('editorTheme') as 'light' | 'dark') || 'dark'
+    }
+    return 'dark'
+  });
+  const [fontSize, setFontSize] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('fontSize') || '14')
+    }
+    return 14
+  });
+  const [keyBindings, setKeyBindings] = useState<'vscode' | 'vim' | 'emacs'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('keyBindings') as 'vscode' | 'vim' | 'emacs') || 'vscode'
+    }
+    return 'vscode'
+  });
+
+  const handleThemeChange = (theme: 'light' | 'dark') => {
+    setEditorTheme(theme);
+    localStorage.setItem('editorTheme', theme);
+    // Apply theme to document
+    if (theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+    // Dispatch event to update monaco editor
+    window.dispatchEvent(new CustomEvent('editorThemeChange', { detail: { theme } }));
+  };
+
+  const handleFontSizeChange = (size: number) => {
+    setFontSize(size);
+    localStorage.setItem('fontSize', size.toString());
+    // Dispatch event to update monaco editor
+    window.dispatchEvent(new CustomEvent('editorFontSizeChange', { detail: { fontSize: size } }));
+  };
 
   if (!isOpen) return null;
 
@@ -60,22 +98,28 @@ export const DevPreferences: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border bg-muted/30">
+        <div className="flex border-b border-border bg-muted/30 overflow-x-auto">
+           <button 
+             onClick={() => setActiveTab('editor')}
+             className={clsx("py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 whitespace-nowrap", activeTab === 'editor' ? "border-accent text-foreground bg-muted" : "border-transparent text-muted-foreground hover:bg-muted/50")}
+           >
+             <Settings size={16} /> Editor Settings
+           </button>
            <button 
              onClick={() => setActiveTab('shortcuts')}
-             className={clsx("flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2", activeTab === 'shortcuts' ? "border-accent text-foreground bg-muted" : "border-transparent text-muted-foreground hover:bg-muted/50")}
+             className={clsx("py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 whitespace-nowrap", activeTab === 'shortcuts' ? "border-accent text-foreground bg-muted" : "border-transparent text-muted-foreground hover:bg-muted/50")}
            >
              <Keyboard size={16} /> Shortcuts
            </button>
            <button 
              onClick={() => setActiveTab('syntax')}
-             className={clsx("flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2", activeTab === 'syntax' ? "border-accent text-foreground bg-muted" : "border-transparent text-muted-foreground hover:bg-muted/50")}
+             className={clsx("py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 whitespace-nowrap", activeTab === 'syntax' ? "border-accent text-foreground bg-muted" : "border-transparent text-muted-foreground hover:bg-muted/50")}
            >
              <Code size={16} /> Language Syntax
            </button>
            <button 
              onClick={() => setActiveTab('complexity')}
-             className={clsx("flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2", activeTab === 'complexity' ? "border-accent text-foreground bg-muted" : "border-transparent text-muted-foreground hover:bg-muted/50")}
+             className={clsx("py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 whitespace-nowrap", activeTab === 'complexity' ? "border-accent text-foreground bg-muted" : "border-transparent text-muted-foreground hover:bg-muted/50")}
            >
              <Zap size={16} /> Complexity Cheatsheet
            </button>
@@ -83,6 +127,68 @@ export const DevPreferences: React.FC<Props> = ({ isOpen, onClose }) => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 bg-card">
+           {activeTab === 'editor' && (
+              <div className="space-y-6">
+                 <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-accent uppercase tracking-wide">Theme</h3>
+                    <div className="flex gap-3">
+                       <button 
+                         onClick={() => handleThemeChange('light')}
+                         className={clsx("px-4 py-2 rounded border-2 font-medium transition-colors", editorTheme === 'light' ? "border-accent bg-accent/20 text-accent" : "border-border bg-muted text-muted-foreground hover:border-accent")}
+                       >
+                         Light
+                       </button>
+                       <button 
+                         onClick={() => handleThemeChange('dark')}
+                         className={clsx("px-4 py-2 rounded border-2 font-medium transition-colors", editorTheme === 'dark' ? "border-accent bg-accent/20 text-accent" : "border-border bg-muted text-muted-foreground hover:border-accent")}
+                       >
+                         Dark
+                       </button>
+                    </div>
+                 </div>
+
+                 <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-accent uppercase tracking-wide">Font Size</h3>
+                    <div className="flex items-center gap-4">
+                       <input 
+                         type="range" 
+                         min="10" 
+                         max="20" 
+                         value={fontSize}
+                         onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
+                         className="flex-1 accent-accent cursor-pointer"
+                       />
+                       <span className="text-sm font-mono bg-muted px-3 py-1 rounded border border-border min-w-[3rem] text-center">{fontSize}px</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Preview: <span style={{ fontSize: `${fontSize}px` }} className="font-mono">Hello Code</span></p>
+                 </div>
+
+                 <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-accent uppercase tracking-wide">Key Bindings</h3>
+                    <div className="flex gap-3">
+                       <button 
+                         onClick={() => setKeyBindings('vscode')}
+                         className={clsx("px-4 py-2 rounded border-2 font-medium transition-colors", keyBindings === 'vscode' ? "border-accent bg-accent/20 text-accent" : "border-border bg-muted text-muted-foreground hover:border-accent")}
+                       >
+                         VS Code
+                       </button>
+                       <button 
+                         onClick={() => setKeyBindings('vim')}
+                         className={clsx("px-4 py-2 rounded border-2 font-medium transition-colors", keyBindings === 'vim' ? "border-accent bg-accent/20 text-accent" : "border-border bg-muted text-muted-foreground hover:border-accent")}
+                       >
+                         Vim
+                       </button>
+                       <button 
+                         onClick={() => setKeyBindings('emacs')}
+                         className={clsx("px-4 py-2 rounded border-2 font-medium transition-colors", keyBindings === 'emacs' ? "border-accent bg-accent/20 text-accent" : "border-border bg-muted text-muted-foreground hover:border-accent")}
+                       >
+                         Emacs
+                       </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Current: <span className="font-semibold text-foreground">{keyBindings.charAt(0).toUpperCase() + keyBindings.slice(1)}</span></p>
+                 </div>
+              </div>
+           )}
            {activeTab === 'shortcuts' && (
               <div className="space-y-4">
                  {shortcuts.map((section) => (
