@@ -339,11 +339,12 @@ export interface Hint {
   created_at: string
 }
 
-export async function getProblems(filters?: { difficulty?: string; category?: string }) {
+export async function getProblems(filters?: { difficulty?: string; category?: string, mode:string}) {
   try {
     const params = new URLSearchParams()
     if (filters?.difficulty) params.append('difficulty', filters.difficulty)
     if (filters?.category) params.append('category', filters.category)
+    if (filters?.mode) params.append('mode', filters.mode)
     
     const response = await fetch(`${API_BASE_DB_URL}/api/problems${params.toString() ? `?${params}` : ''}`, {
       method: "GET",

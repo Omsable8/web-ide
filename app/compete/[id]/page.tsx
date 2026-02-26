@@ -26,6 +26,7 @@ interface Problem {
   examples: string
   topic?: string
   constraints: string
+  mode?: string
   time_complexity?: string
   space_complexity?: string
   created_at?: string

@@ -44,6 +44,7 @@ function CompetePage() {
       const response = await getProblems({
         difficulty: selectedDifficulty || undefined,
         category: selectedCategory || undefined,
+        mode: 'compete'
       })
 
       if (response.success && response.problems) {

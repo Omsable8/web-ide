@@ -52,12 +52,12 @@ def _fetch_testcases_from_db(problem_id):
     return {"data": rows}
 
 @lru_cache(maxsize=10)
-def _fetch_problems_from_db(difficulty=None, category=None):
+def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
     print(f"[CACHE MISS] Fetching problems with difficulty={difficulty}, category={category}")
     
     # Start with a base query
-    query = "SELECT * FROM problems WHERE 1=1"
-    params = {}
+    query = "SELECT * FROM problems WHERE mode=:mode"
+    params = {'mode': mode} if mode else {}
     
     # Dynamically append filters
     if difficulty:
@@ -239,8 +239,8 @@ def get_problems():
         # Get query parameters for filtering
         difficulty = request.args.get('difficulty')
         category = request.args.get('category')
-        
-        problems = _fetch_problems_from_db(difficulty, category)
+        mode = request.args.get('mode')  # Optional: "compete" or "learn"
+        problems = _fetch_problems_from_db(difficulty, category,mode)
 
         if not problems['data']:
             return jsonify({"success": False, "error": "Problem not found"}), 404

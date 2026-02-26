@@ -44,6 +44,7 @@ function LearnPage() {
       const response = await getProblems({
         difficulty: selectedDifficulty || undefined,
         category: selectedCategory || undefined,
+        mode:'learn'
       })
 
       if (response.success && response.problems) {
