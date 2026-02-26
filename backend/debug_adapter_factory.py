@@ -74,7 +74,7 @@ class DebugAdapterFactory:
             import platform
             use_lldb = platform.system() == 'Darwin'  # macOS
             return CppDebugAdapterHelper.create_from_source(
-                file_path, port, use_lldb=use_lldb, on_event=on_event
+                file_path, port, use_lldb=True, on_event=on_event
             )
         
         else:
@@ -182,11 +182,18 @@ class DebugAdapterFactory:
     @staticmethod
     def _create_cpp_adapter(code: str, port: int, input_data: Optional[str],
                            work_dir: str, on_event) -> Optional[BaseDebugAdapter]:
-        """Create C++ adapter from code string"""
-        # Wrap code with main if needed
-        # if 'int main' not in code:
-        #     code = CppDebugAdapterHelper.wrap_with_main(code)
+        """Create C++ adapter from code string with automatic stdin redirection"""
         
+        # 1. Write the input data to input.txt
+        if input_data:
+            input_file = os.path.join(work_dir, 'input.txt')
+            with open(input_file, 'w') as f:
+                f.write(input_data)
+                
+            # 2. Append global constructor to the BOTTOM to preserve breakpoint line numbers
+            redirect_code = '\n#include <cstdio>\nstatic struct _DAP_StdinRedirector { _DAP_StdinRedirector() { freopen("input.txt", "r", stdin); } } _dap_stdin_redirector;\n'
+            code = code + redirect_code
+
         # Create source file
         source_file = os.path.join(work_dir, 'solution.cpp')
         with open(source_file, 'w') as f:
@@ -195,12 +202,12 @@ class DebugAdapterFactory:
         # Create adapter and compile
         import platform
         use_lldb = platform.system() == 'Darwin'
+        # Force LLDB if you are on Linux without GDB 14+
         adapter = CppDebugAdapterHelper.create_from_source(
-            source_file, port, use_lldb, on_event
+            source_file, port, use_lldb=True, on_event=on_event 
         )
         
         return adapter
-
 
 class DebugSessionManager:
     """

@@ -284,7 +284,7 @@ class BaseDebugAdapter(ABC):
         all_variables = []
         for scope in scopes:
             scope_name = scope.get('name', 'unknown')
-            if scope_name == "Globals":
+            if scope_name == "Globals" or scope_name == "Registers":
                 continue # Skip globals to reduce noise, can be enabled if needed
             var_ref = scope.get('variablesReference', 0)
             
@@ -740,6 +740,11 @@ class BaseDebugAdapter(ABC):
             # This is normal; it just tells us the start method/PID
             # We can log it and ignore it so it doesn't show as 'Unhandled'
             self.log(f"Process event: {msg.body.get('name', 'unknown')}")
+
+        elif event_name == "breakpoint":
+            self.log(f"Breakpoint verified asynchronously: {msg.body.get('reason')}")
+            # Optionally forward to frontend if needed
+            pass
 
         
         else:
