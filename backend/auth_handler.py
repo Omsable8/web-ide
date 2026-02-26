@@ -99,7 +99,7 @@ class AuthHandler:
                 'error': 'Invalid credentials'
             }
         """
-        users = execute_read("SELECT * FROM user_profiles WHERE email = :email", {"email": email})
+        users = execute_read("SELECT uid, name, email, password_hash FROM user_profiles WHERE email = :email", {"email": email})
         
         if not users:
             return {'success': False, 'error': 'Invalid credentials'}

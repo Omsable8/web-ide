@@ -25,7 +25,7 @@ def _fetch_template_from_db(problem_id, language):
     """Helper to cache template based on BOTH ID and Language"""
     print(f"[CACHE MISS] Fetching template for {problem_id} - {language}")
     rows = execute_read(
-        "SELECT * FROM code_templates WHERE problem_id = :pid AND language = :lang",
+        "SELECT id, problem_id, language, template_code, function_name, input_params, return_type, driver_code, solution_code FROM code_templates WHERE problem_id = :pid AND language = :lang",
         {"pid": problem_id, "lang": language}
     )
     return {"data": rows[0] if rows else None}
@@ -35,7 +35,7 @@ def _fetch_hints_from_db(problem_id):
     """Helper to cache hints based on ID"""
     print(f"[CACHE MISS] Fetching hints for {problem_id}")
     
-    query = "SELECT * FROM hints WHERE problem_id = :pid"
+    query = "SELECT id, problem_id, hints_data FROM hints WHERE problem_id = :pid"
     rows = execute_read(query, {"pid": problem_id})
     
     # Supabase .single() returns one dict. We replicate that structure.
@@ -45,7 +45,7 @@ def _fetch_hints_from_db(problem_id):
 def _fetch_testcases_from_db(problem_id):
     print(f"[CACHE MISS] Fetching testcases {problem_id}")
     
-    query = "SELECT * FROM test_cases WHERE problem_id = :pid"
+    query = "SELECT id, problem_id, is_hidden, input_params FROM test_cases WHERE problem_id = :pid"
     rows = execute_read(query, {"pid": problem_id})
     
     # Supabase returns a list of rows
@@ -56,7 +56,7 @@ def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
     print(f"[CACHE MISS] Fetching problems with difficulty={difficulty}, category={category}")
     
     # Start with a base query
-    query = "SELECT * FROM problems WHERE mode=:mode"
+    query = "SELECT id, title, description, difficulty, category, topic, examples, constraints, time_complexity, space_complexity, mode FROM problems WHERE mode=:mode"
     params = {'mode': mode} if mode else {}
     
     # Dynamically append filters

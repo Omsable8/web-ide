@@ -326,7 +326,7 @@ export interface Problem {
   category: string
   examples: string
   constraints: string
-  created_at: string
+  mode: string 
 }
 
 
@@ -336,7 +336,6 @@ export interface Hint {
   problem_id: string
   level: number
   content: string
-  created_at: string
 }
 
 export async function getProblems(filters?: { difficulty?: string; category?: string, mode:string}) {

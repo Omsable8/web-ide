@@ -31,7 +31,6 @@ interface Problem {
   mode?: string
   time_complexity?: string
   space_complexity?: string
-  created_at?: string
 }
 
 interface TestCase {
@@ -39,8 +38,6 @@ interface TestCase {
   problem_id?: string
   input_params: Array<{ name: string; type: string; value?: any }>
   is_hidden?: boolean
-  explanation?: string
-  created_at?: string
 }
 
 interface Hint {
