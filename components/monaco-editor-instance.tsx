@@ -54,7 +54,7 @@ interface MonacoEditorProps {
 
 export function MonacoEditorInstance({
   initialCode,
-  initialLanguage = "cpp",
+  initialLanguage = "java",
   onCodeChange,
   onLanguageChange,
   onRun,

@@ -107,7 +107,7 @@ function ProblemDetailPage() {
   const [hints, setHints] = useState<Hint[]>([])
   const [loading, setLoading] = useState(true)
   const [code, setCode] = useState('')
-  const [language, setLanguage] = useState('python')
+  const [language, setLanguage] = useState('java')
   const [showHints, setShowHints] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false })
 
   const [hintsUsed, setHintsUsed] = useState<number>(0) // 0-3: 0=never, 1=level1, 2=level2, 3=level3
