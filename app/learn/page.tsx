@@ -99,7 +99,7 @@ function LearnPage() {
   const filteredProblems = problems.filter((p) => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const difficulties = ['Easy', 'Medium', 'Hard']
-  const categories = ['Arrays', 'Strings', 'Searching', 'Sorting', 'Linked Lists', 'Trees', 'Graphs', 'DP']
+  const categories = ['Arrays', 'Math']
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
