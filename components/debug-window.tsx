@@ -36,6 +36,7 @@ export function DebugWindow({
     stack: true,
     output: true,
   })
+  const [debugHeight, setDebugHeight] = useState(320) // h-80 = 320px
 
   const toggleSection = (section: 'variables' | 'stack' | 'output') => {
     setExpandedSections((prev) => ({
@@ -44,10 +45,36 @@ export function DebugWindow({
     }))
   }
 
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startHeight = debugHeight
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = startY - e.clientY // Inverted: moving up increases height
+      const newHeight = Math.max(150, Math.min(600, startHeight + delta))
+      setDebugHeight(newHeight)
+    }
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
   if (!isOpen) return null
 
   return (
-    <div className="w-full h-80 bg-background border-t border-border shadow-lg z-40 flex flex-col overflow-hidden">
+    <div className="w-full bg-background border-t border-border shadow-lg z-40 flex flex-col overflow-hidden" style={{ height: `${debugHeight}px` }}>
+      {/* Resize Handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="h-1 bg-border hover:bg-accent cursor-row-resize transition-colors flex-shrink-0"
+        title="Drag to resize debug window"
+      />
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">

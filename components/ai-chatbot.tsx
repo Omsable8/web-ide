@@ -32,7 +32,7 @@ export function AIChatbot({
   ])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-20b:free")
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini")
   const [aiUsed, setAiUsed] = useState<number>(0) // 0-1: 0=never, 1=used
   const [chatMode, setChatMode] = useState<ChatMode>("chat")
   const [showModeMenu, setShowModeMenu] = useState(false)
@@ -221,15 +221,23 @@ export function AIChatbot({
                 </button> */}
                 <button
                   onClick={() => handleModelChange("openai/gpt-5-nano")}
-                  className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
-                  >
+                  className={`block w-full text-left px-3 py-2 text-xs ${
+                    selectedModel === "openai/gpt-5-nano"
+                      ? "bg-accent/20 text-accent font-medium"
+                      : "hover:bg-muted text-foreground"
+                  }`}
+                >
                   openai/gpt-5-nano
                 </button> 
 
                 <button
                   onClick={() => handleModelChange("openai/gpt-4o-mini")}
-                  className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
-                  >
+                  className={`block w-full text-left px-3 py-2 text-xs ${
+                    selectedModel === "openai/gpt-4o-mini"
+                      ? "bg-accent/20 text-accent font-medium"
+                      : "hover:bg-muted text-foreground"
+                  }`}
+                >
                   openai/gpt-4o-mini
                 </button> 
               </div>

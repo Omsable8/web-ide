@@ -67,7 +67,7 @@ export function MonacoEditorInstance({
 }: MonacoEditorProps) {
   // ADD THIS: Track if editor is fully loaded
   const [isEditorReady, setIsEditorReady] = useState(false)
-  const [language, setLanguage] = useState<"cpp" | "python" | "java">(initialLanguage)
+  const [language, setLanguage] = useState<"cpp" | "python" | "java">("java")
   const [code, setCode] = useState(initialCode || SAMPLE_CODE[initialLanguage])
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const [isExecuting, setIsExecuting] = useState(false)

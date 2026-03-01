@@ -236,6 +236,17 @@ function ProblemDetailPage() {
 
   const handleRunTests = async () => {
     if (!code.trim()) return
+    
+    // Validate custom test cases - no empty input fields
+    const hasEmptyCustomTestCase = customTestCases.some(tc =>
+      tc.input_params.some(param => !param.value || String(param.value).trim() === '')
+    )
+    
+    if (hasEmptyCustomTestCase) {
+      alert('Please fill in all input fields in custom test cases before running tests.')
+      return
+    }
+    
     setRunning(true)
     try {
       const result = await runTests(problemId, code, language, customTestCases)
