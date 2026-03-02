@@ -105,6 +105,8 @@ def run_tests(problem_id):
         # print(f"Built stdin string for {total_tests} tests: {stdin_string}")
         # Execute user code
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code , language, stdin_string)
+        # if not user_result.get('success'):
+        #     return jsonify({"success": False, "error": user_result.get('error', '')})
         user_outputs = user_result.get('output', '').strip().split('\n') if user_result.get('output') else []
         
         # Execute solution code
@@ -116,12 +118,13 @@ def run_tests(problem_id):
         for i, metadata in enumerate(test_metadata):
             actual = user_outputs[i].strip() if i < len(user_outputs) else ''
             expected = expected_outputs[i].strip() if i < len(expected_outputs) else ''
-            
+            error = user_result.get('error', '')
             results.append({
                 'test_id': metadata['test_id'],
                 'input_params': all_test_inputs[i],
                 'expected': expected,
                 'actual': actual,
+                'error': error if error else None,
                 'passed': actual == expected,
                 'is_hidden': metadata['is_hidden'],
                 'type': metadata['type']
@@ -233,12 +236,13 @@ def submit_code(problem_id):
         for i, metadata in enumerate(test_metadata):
             actual = user_outputs[i].strip() if i < len(user_outputs) else ''
             expected = expected_outputs[i].strip() if i < len(expected_outputs) else ''
-            
+            error = user_result.get('error', '')
             results.append({
                 'test_id': metadata['test_id'],
                 'input_params': all_test_inputs[i],
                 'expected': expected,
                 'actual': actual,
+                'error': error if error else None,
                 'passed': actual == expected,
                 'is_hidden': metadata['is_hidden'],
                 'type': metadata['type']

@@ -251,9 +251,31 @@ function ProblemDetailPage() {
       if (result.success && result.results) {
         setTestResults(result.results)
         setActiveTab('testcases')
+      } else if (!result.success) {
+        // Display compilation/runtime error
+        const errorMsg = result.error || 'Unknown error occurred'
+        setTestResults([{ 
+          test_id:'NA',
+          passed: false, 
+          error: errorMsg,
+          input_params: [{}],
+          expected: 'N/A',
+          actual: 'N/A'
+        }] as TestResult[])
+        setActiveTab('testcases')
       }
     } catch (error) {
       console.error('Failed to run tests:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to run tests'
+      setTestResults([{ 
+          test_id:'NA',
+          passed: false, 
+          error: errorMessage,
+          input_params: {},
+          expected: 'N/A',
+          actual: "N/A"
+        }] as TestResult[])
+      setActiveTab('testcases')
     } finally {
       setRunning(false)
     }
@@ -277,9 +299,31 @@ function ProblemDetailPage() {
           accepted: result.accepted || false
         })
         setShowSubmissionModal(true)
+      } else if (!result.success) {
+        // Display compilation/runtime error
+        const errorMsg = result.error || 'Unknown error occurred'
+        setTestResults([{ 
+          test_id:'NA',
+          passed: false, 
+          error: errorMsg,
+          input_params: [{}],
+          expected: 'N/A',
+          actual: 'N/A'
+        }] as TestResult[])
+        setActiveTab('testcases')
       }
     } catch (error) {
       console.error('Failed to submit code:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit code'
+      setTestResults([{ 
+          test_id:'NA',
+          passed: false, 
+          error: errorMessage,
+          input_params: {},
+          expected: 'N/A',
+          actual: "N/A"
+        }] as TestResult[])
+      setActiveTab('testcases')
     } finally {
       setRunning(false)
     }
