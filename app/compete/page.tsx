@@ -50,44 +50,7 @@ function CompetePage() {
       if (response.success && response.problems) {
         setProblems(response.problems)
       } else {
-        // Sample problems for demo
-        setProblems([
-          {
-            id: '1',
-            title: 'Two Sum',
-            difficulty: 'Easy',
-            category: 'Arrays',
-            acceptance_rate: 47.3,
-          },
-          {
-            id: '2',
-            title: 'Longest Substring Without Repeating Characters',
-            difficulty: 'Medium',
-            category: 'Strings',
-            acceptance_rate: 33.1,
-          },
-          {
-            id: '3',
-            title: 'Median of Two Sorted Arrays',
-            difficulty: 'Hard',
-            category: 'Arrays',
-            acceptance_rate: 27.5,
-          },
-          {
-            id: '4',
-            title: 'Binary Search',
-            difficulty: 'Easy',
-            category: 'Searching',
-            acceptance_rate: 52.1,
-          },
-          {
-            id: '5',
-            title: 'Merge K Sorted Lists',
-            difficulty: 'Hard',
-            category: 'Linked Lists',
-            acceptance_rate: 35.8,
-          },
-        ])
+        setProblems([])
       }
     } catch (error) {
       console.error('Failed to fetch problems:', error)
