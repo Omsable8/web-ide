@@ -19,8 +19,8 @@ CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 auth = AuthHandler() # No client needed anymore
 
 # --- Cached Helper Functions ---
-
-@lru_cache(maxsize=30) # Increased size to handle (10 problems * 3 languages)
+LRU_CACHE_SIZE = 40  # Adjust based on expected load and memory constraints
+@lru_cache(maxsize=LRU_CACHE_SIZE) # Increased size to handle (10 problems * 3 languages)
 def _fetch_template_from_db(problem_id, language):
     """Helper to cache template based on BOTH ID and Language"""
     print(f"[CACHE MISS] Fetching template for {problem_id} - {language}")
@@ -30,7 +30,7 @@ def _fetch_template_from_db(problem_id, language):
     )
     return {"data": rows[0] if rows else None}
 
-@lru_cache(maxsize=10)
+@lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_hints_from_db(problem_id):
     """Helper to cache hints based on ID"""
     print(f"[CACHE MISS] Fetching hints for {problem_id}")
@@ -41,7 +41,7 @@ def _fetch_hints_from_db(problem_id):
     # Supabase .single() returns one dict. We replicate that structure.
     return {"data": rows[0] if rows else None}
 
-@lru_cache(maxsize=20)
+@lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_testcases_from_db(problem_id):
     print(f"[CACHE MISS] Fetching testcases {problem_id}")
     
@@ -51,7 +51,7 @@ def _fetch_testcases_from_db(problem_id):
     # Supabase returns a list of rows
     return {"data": rows}
 
-@lru_cache(maxsize=10)
+@lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
     print(f"[CACHE MISS] Fetching problems with difficulty={difficulty}, category={category}")
     
@@ -71,7 +71,7 @@ def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
     
     return {"data": rows}
 
-@lru_cache(maxsize=10)
+@lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_problem_from_db(problem_id):
     print(f"[CACHE MISS] Fetching problem {problem_id}")
     rows = execute_read("SELECT * FROM problems WHERE id = :pid", {"pid": problem_id})
