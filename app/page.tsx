@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Code2, BookOpen, Zap, LogOut, User } from 'lucide-react'
+import { Code2, BookOpen, Zap, LogOut, User, Sun, Moon } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 
@@ -11,10 +11,26 @@ export default function Dashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
+  const [isDark, setIsDark] = useState(true)
 
   useEffect(() => {
     setIsClient(true)
+    // Sync initial state with actual document class
+    setIsDark(document.documentElement.classList.contains('dark'))
   }, [])
+
+  const toggleTheme = () => {
+    const root = document.documentElement
+    if (root.classList.contains('dark')) {
+      root.classList.remove('dark')
+      setIsDark(false)
+      localStorage.setItem('editorTheme', 'light')
+    } else {
+      root.classList.add('dark')
+      setIsDark(true)
+      localStorage.setItem('editorTheme', 'dark')
+    }
+  }
 
   const handleLogout = () => {
     logout()
@@ -31,6 +47,14 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-accent">MAPLE</h1>
           </div>
           <nav className="flex items-center gap-6">
+            {/* Theme toggle - always visible */}
+            <button
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-md border border-border bg-card hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             {isClient && user ? (
               <>
                 <Link href="/learn" className="text-foreground hover:text-accent transition">Learn</Link>
