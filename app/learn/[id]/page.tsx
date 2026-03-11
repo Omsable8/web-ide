@@ -253,10 +253,13 @@ function ProblemDetailPage() {
       if (result.success && result.results) {
         setTestResults(result.results)
         setCodeContext(code)
+        setOutputContext(result.results[0].error)
         setActiveTab('testcases')
       } else if (!result.success) {
         // Display compilation/runtime error
         const errorMsg = result.error || 'Unknown error occurred'
+        setCodeContext(code)
+        setOutputContext(errorMsg)
         setTestResults([{ 
           test_id:'NA',
           passed: false, 
@@ -270,6 +273,7 @@ function ProblemDetailPage() {
     } catch (error) {
       console.error('Failed to run tests:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to run tests'
+      setOutputContext(errorMessage)
       setTestResults([{ 
           test_id:'NA',
           passed: false, 
@@ -294,6 +298,7 @@ function ProblemDetailPage() {
         const publicResults = result.results.filter(r => !r.is_hidden)
         setTestResults(publicResults)
         setCodeContext(code)
+        setOutputContext(result.results[0].error)
         setActiveTab('testcases')
 
         // Store submission result and show modal
@@ -306,6 +311,8 @@ function ProblemDetailPage() {
       } else if (!result.success) {
         // Display compilation/runtime error
         const errorMsg = result.error || 'Unknown error occurred'
+        setCodeContext(code)
+        setOutputContext(errorMsg)
         setTestResults([{ 
           test_id:'NA',
           passed: false, 
@@ -319,6 +326,7 @@ function ProblemDetailPage() {
     } catch (error) {
       console.error('Failed to submit code:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to submit code'
+      setOutputContext(errorMessage)
       setTestResults([{ 
           test_id:'NA',
           passed: false, 
