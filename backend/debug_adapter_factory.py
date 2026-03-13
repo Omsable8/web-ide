@@ -111,29 +111,26 @@ class DebugAdapterFactory:
             
             # Ensure absolute path
             work_dir = os.path.abspath(work_dir)
-        try:
-            if language == Language.PYTHON:
-                return DebugAdapterFactory._create_python_adapter(
-                    code, port, input_data, work_dir, on_event
-                )
-            
-            elif language == Language.JAVA:
-                return DebugAdapterFactory._create_java_adapter(
-                    code, port, input_data, work_dir, on_event
-                )
-            
-            elif language == Language.CPP:
-                return DebugAdapterFactory._create_cpp_adapter(
-                    code, port, input_data, work_dir, on_event
-                )
-            
-            else:
-                print(f"[ERROR] Unsupported language: {language}")
-                return None
+    
+        if language == Language.PYTHON:
+            return DebugAdapterFactory._create_python_adapter(
+                code, port, input_data, work_dir, on_event
+            )
         
-        except Exception as e:
-            print(f"[ERROR] Failed to create adapter: {e}")
+        elif language == Language.JAVA:
+            return DebugAdapterFactory._create_java_adapter(
+                code, port, input_data, work_dir, on_event
+            )
+        
+        elif language == Language.CPP:
+            return DebugAdapterFactory._create_cpp_adapter(
+                code, port, input_data, work_dir, on_event
+            )
+        
+        else:
+            print(f"[ERROR] Unsupported language: {language}")
             return None
+    
     
     @staticmethod
     def _create_python_adapter(code: str, port: int, input_data: Optional[str],

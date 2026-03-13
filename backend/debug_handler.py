@@ -172,6 +172,7 @@ def handle_start_debug(data):
                 traceback.print_exc()
         
         # Create debug session
+        
         print(f"[SERVER] Creating debug session...")
         adapter = session_manager.create_session(
             session_id=sid,
@@ -181,11 +182,7 @@ def handle_start_debug(data):
             on_event=on_debug_event
         )
         
-        if not adapter:
-            print("[SERVER] ERROR: Failed to create adapter")
-            socketio.emit('debug_error', {'error': 'Failed to create debug adapter'}, room=sid)
-            return
-        
+    
         # Start debugger in background
         def start_debugger_async():
             try:
@@ -225,7 +222,7 @@ def handle_start_debug(data):
     
     except Exception as e:
         print(f"[SERVER] ERROR in handle_start_debug: {e}")
-        
+        session_manager.stop_session(sid)
         traceback.print_exc()
         socketio.emit('debug_error', {'error': str(e)}, room=sid)
 

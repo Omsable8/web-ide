@@ -212,9 +212,10 @@ export const useDebugger = (options: UseDebuggerOptions = {}) => {
       
       setDebugState(prev => ({
         ...prev,
-        error: data.error,
+        output: data.error,
         isRunning: false,
         isPaused: false,
+        isConnected:false
       }));
     });
 

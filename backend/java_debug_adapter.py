@@ -43,19 +43,18 @@ class JavaDebugAdapter(BaseDebugAdapter):
         return "java"
 
     def compile_java_file(self, java_file: str) -> bool:
-        try:
-            # -g is crucial for debugging (line numbers)
-            result = subprocess.run(
-                ['javac', '-g','-cp', self.classpath, java_file],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode != 0:
-                print(f"[ERROR] Compilation: {result.stderr}")
-                return False
-            return True
-        except Exception as e:
-            print(f"[ERROR] Compile error: {e}")
-            return False
+
+        # -g is crucial for debugging (line numbers)
+        result = subprocess.run(
+            ['javac', '-g','-cp', self.classpath, java_file],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            # print(f"[ERROR] Compilation: {result.stderr}")
+            raise RuntimeError(f"Compilation Error:\n{result.stderr}")
+            # return False
+        return True
+
 
 class JavaDebugAdapterHelper:
     @staticmethod

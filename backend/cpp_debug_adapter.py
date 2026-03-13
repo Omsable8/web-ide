@@ -106,20 +106,19 @@ class CppDebugAdapter(BaseDebugAdapter):
     
     def compile_cpp_file(self, source_file: str, output_path: Optional[str] = None) -> bool:
         if output_path is None: output_path = os.path.splitext(source_file)[0]
-        try:
-            result = subprocess.run(
-                ['g++', '-g', '-O0', '-std=c++17', source_file, '-o', output_path],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.returncode != 0:
-                print(f"[ERROR] C++ compilation failed:\n{result.stderr}")
-                return False
-            self.executable_path = output_path
-            self.file_path = source_file
-            return True
-        except Exception as e:
-            print(f"[ERROR] C++ compilation error: {e}")
-            return False
+
+        result = subprocess.run(
+            ['g++', '-g', '-O0', '-std=c++17', source_file, '-o', output_path],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            # print(f"[ERROR] C++ compilation failed:\n{result.stderr}")
+            raise RuntimeError(f"Compilation Error:\n{result.stderr}")
+            # return False
+        self.executable_path = output_path
+        self.file_path = source_file
+        return True
+
 
 class LLDBDebugAdapter(BaseDebugAdapter):
     def __init__(self, executable_path: str, port: int, lldb_path: str = 'lldb-vscode-14', on_event=None):
@@ -138,20 +137,19 @@ class LLDBDebugAdapter(BaseDebugAdapter):
     
     def compile_cpp_file(self, source_file: str, output_path: Optional[str] = None) -> bool:
         if output_path is None: output_path = os.path.splitext(source_file)[0]
-        try:
-            result = subprocess.run(
-                ['clang++','-stdlib=libc++', '-g', '-O0', '-std=c++17', source_file, '-o', output_path],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.returncode != 0:
-                print(f"[ERROR] C++ compilation failed:\n{result.stderr}")
-                return False
-            self.executable_path = output_path
-            self.file_path = source_file
-            return True
-        except Exception as e:
-            print(f"[ERROR] C++ compilation error: {e}")
-            return False
+    
+        result = subprocess.run(
+            ['clang++','-stdlib=libc++', '-g', '-O0', '-std=c++17', source_file, '-o', output_path],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            # print(f"[ERROR] C++ compilation failed:\n{result.stderr}")
+            raise RuntimeError(f"Compilation Error:\n{result.stderr}")
+            # return False
+        self.executable_path = output_path
+        self.file_path = source_file
+        return True
+
 
 class CppDebugAdapterHelper:
     @staticmethod
