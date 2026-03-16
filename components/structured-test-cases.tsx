@@ -71,21 +71,19 @@ export function StructuredTestCases({
       <div className="flex gap-2 border-b border-border">
         <button
           onClick={() => setActiveTab('testcase')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'testcase'
-              ? 'border-b-2 border-accent text-accent'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'testcase'
+            ? 'border-b-2 border-accent text-accent'
+            : 'text-muted-foreground hover:text-foreground'
+            }`}
         >
           ✓ Testcase
         </button>
         <button
           onClick={() => setActiveTab('result')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'result'
-              ? 'border-b-2 border-accent text-accent'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'result'
+            ? 'border-b-2 border-accent text-accent'
+            : 'text-muted-foreground hover:text-foreground'
+            }`}
         >
           Test Result
         </button>
@@ -100,11 +98,10 @@ export function StructuredTestCases({
               <button
                 key={idx}
                 onClick={() => setSelectedCaseIndex(idx)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedCaseIndex === idx
-                    ? 'bg-muted text-foreground border-2 border-accent'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${selectedCaseIndex === idx
+                  ? 'bg-muted text-foreground border-2 border-accent'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}
               >
                 Case {idx + 1}
               </button>
@@ -201,11 +198,10 @@ export function StructuredTestCases({
                 .map((result, idx) => (
                   <div
                     key={idx}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      result.passed
-                        ? 'bg-green-500/5 border-green-500/30'
-                        : 'bg-red-500/5 border-red-500/30'
-                    }`}
+                    className={`p-4 rounded-lg border-2 transition-colors ${result.passed
+                      ? 'bg-green-500/5 border-green-500/30'
+                      : 'bg-red-500/5 border-red-500/30'
+                      }`}
                   >
                     <div className="flex items-center gap-2 mb-3">
                       {result.passed ? (
@@ -237,17 +233,29 @@ export function StructuredTestCases({
                         <div className="text-green-400">{result.expected}</div>
                       </div>
 
-                      {/* Actual Output */}
-                      <div className="bg-background p-3 rounded">
-                        <div className="text-muted-foreground mb-1">Actual:</div>
-                        <div className={result.passed ? 'text-green-400' : 'text-red-400'}>{result.actual}</div>
-                      </div>
-
-                      {/* Error if any */}
-                      {result.error && (
+                      {/* Actual Output or Error */}
+                      {result.actual.includes("Execution Error:") ? (
+                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-md mt-2">
+                          <div className="text-red-400 font-semibold text-sm mb-2">Runtime Error:</div>
+                          <div className="text-red-300 font-mono text-sm whitespace-pre-wrap break-all leading-relaxed">
+                            {result.actual.replace("Execution Error:\n", "")}
+                          </div>
+                        </div>
+                      ) : (
                         <div className="bg-background p-3 rounded">
-                          <div className="text-muted-foreground mb-1">Error:</div>
-                          <div className="text-yellow-400">{result.error}</div>
+                          <div className="text-muted-foreground mb-1">Actual:</div>
+                          <div className={result.passed ? 'text-green-400' : 'text-red-400 whitespace-pre-wrap'}>
+                            {result.actual}
+                          </div>
+                        </div>
+                      )}
+
+                      {result.error && (
+                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-md mt-2">
+                          <div className="text-red-400 font-semibold text-sm mb-2">Execution Error:</div>
+                          <div className="text-red-300 font-mono text-sm whitespace-pre-wrap leading-relaxed">
+                              {result.error}
+                          </div>
                         </div>
                       )}
                     </div>

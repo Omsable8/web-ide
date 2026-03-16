@@ -155,7 +155,7 @@ class CodeExecutor:
                 error = result.stderr[:CodeExecutor.MAX_OUTPUT]
                 
                 return {
-                    "success": result.returncode == 0,
+                    "success": 0 if error else 1,  # Consider it success if there's no stderr
                     "output": output,
                     "error": error if error else None
                 }

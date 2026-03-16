@@ -105,19 +105,21 @@ def run_tests(problem_id):
         # print(f"Built stdin string for {total_tests} tests: {stdin_string}")
         # Execute user code
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code , language, stdin_string)
-        # if not user_result.get('success'):
-        #     return jsonify({"success": False, "error": user_result.get('error', '')})
-        user_outputs = user_result.get('output', '').strip().split('\n') if user_result.get('output') else []
+        if not user_result.get('success'):
+            return jsonify({"success": False, "error": user_result.get('error', '')})
+        user_outputs = user_result.get('output', '').strip().split('---SEP---') if user_result.get('output') else []
         
         # Execute solution code
         solution_result = CodeExecutor.execute(solution_code + '\n' + driver_code, language, stdin_string)
-        expected_outputs = solution_result.get('output', '').strip().split('\n') if solution_result.get('output') else []
+        expected_outputs = solution_result.get('output', '').strip().split('---SEP---') if solution_result.get('output') else []
         
         # Match outputs with test cases
         results = []
+        num_user_outputs = len(user_outputs)
+        num_expected_outputs = len(expected_outputs)
         for i, metadata in enumerate(test_metadata):
-            actual = user_outputs[i].strip() if i < len(user_outputs) else ''
-            expected = expected_outputs[i].strip() if i < len(expected_outputs) else ''
+            actual = user_outputs[i].strip() if i < num_user_outputs else ''
+            expected = expected_outputs[i].strip() if i < num_expected_outputs else ''
             error = user_result.get('error', '')
             results.append({
                 'test_id': metadata['test_id'],
@@ -225,17 +227,21 @@ def submit_code(problem_id):
         # print(f"Built stdin string for {total_tests} tests:\n{stdin_string}")
         # Execute user code once with all tests
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code, language, stdin_string)
-        user_outputs = user_result.get('output', '').strip().split('\n') if user_result.get('output') else []
+        if not user_result.get('success'):
+            return jsonify({"success": False, "error": user_result.get('error', '')})
+        user_outputs = user_result.get('output', '').strip().split('---SEP---') if user_result.get('output') else []
         
         # Execute solution code once with all tests
         solution_result = CodeExecutor.execute(solution_code + '\n' + driver_code, language, stdin_string)
-        expected_outputs = solution_result.get('output', '').strip().split('\n') if solution_result.get('output') else []
+        expected_outputs = solution_result.get('output', '').strip().split('---SEP---') if solution_result.get('output') else []
         
         # Match outputs with test cases
         results = []
+        num_user_outputs = len(user_outputs)
+        num_expected_outputs = len(expected_outputs)
         for i, metadata in enumerate(test_metadata):
-            actual = user_outputs[i].strip() if i < len(user_outputs) else ''
-            expected = expected_outputs[i].strip() if i < len(expected_outputs) else ''
+            actual = user_outputs[i].strip() if i < num_user_outputs else ''
+            expected = expected_outputs[i].strip() if i < num_expected_outputs else ''
             error = user_result.get('error', '')
             results.append({
                 'test_id': metadata['test_id'],
