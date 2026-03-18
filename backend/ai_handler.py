@@ -64,34 +64,14 @@ def set_model():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/service/ai/analyze', methods=['POST'])
-def analyze_code():
-    """Analyze code for potential issues"""
-    try:
-        data = request.get_json()
-        code = data.get('code', '')
-        language = data.get('language', 'python')
-        
-        if not code:
-            return jsonify({"success": False, "error": "No code provided"}), 400
-        
-        analysis = ai_chatbot.analyze_code(code, language)
-        
-        return jsonify({"success": True, "analysis": analysis})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/service/ai/explain-failure', methods=['POST'])
 def explain_failure():
     """Explain test case failure"""
     try:
         data = request.get_json()
-        expected = data.get('expected', '')
-        actual = data.get('actual', '')
-        test_input = data.get('input', '')
-        
-        explanation = ai_chatbot.explain_test_case_failure(expected, actual, test_input)
+        raw_error = data.get('error', '')
+        explanation = ai_chatbot.simplify_error(raw_stack_trace=raw_error)
         
         return jsonify({"success": True, "explanation": explanation})
         

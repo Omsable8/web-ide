@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react'
 
@@ -36,7 +36,42 @@ interface StructuredTestCasesProps {
   onUpdateCustomTestCase: (index: number, testCase: TestCaseData) => void
   isSubmitMode?: boolean
 }
+export const simplifyError = async (error: string) =>
+  fetch('http://localhost:5002/service/ai/explain-failure',
+    {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error })
+    }).
+    then(res => res.json()).
+    then(data => data.success ? data.explanation : error).
+    catch(() => error);
 
+// Make sure to import your simplifyError function here
+
+function SimplifiedErrorDisplay({ rawError }: { rawError: string }) {
+  // Extract the actual error part from your custom delimiter
+  const cleanedRawError = rawError.replace("Execution Error:\n", "")
+
+  const [errorMsg, setErrorMsg] = useState<string>("Simplifying error...")
+
+  useEffect(() => {
+    let isMounted = true;
+
+    simplifyError(cleanedRawError).then((simplified) => {
+      if (isMounted) {
+        setErrorMsg(simplified);
+      }
+    });
+
+    return () => { isMounted = false; }; // Cleanup to prevent state updates on unmounted components
+  }, [cleanedRawError]);
+
+  return (
+    <div className="text-red-300 font-mono text-sm whitespace-pre-wrap break-all leading-relaxed">
+      {errorMsg}
+    </div>
+  );
+}
 export function StructuredTestCases({
   testCases,
   testResults,
@@ -237,9 +272,8 @@ export function StructuredTestCases({
                       {result.actual.includes("Execution Error:") ? (
                         <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-md mt-2">
                           <div className="text-red-400 font-semibold text-sm mb-2">Runtime Error:</div>
-                          <div className="text-red-300 font-mono text-sm whitespace-pre-wrap break-all leading-relaxed">
-                            {result.actual.replace("Execution Error:\n", "")}
-                          </div>
+                          {/* Call the new component here */}
+                          <SimplifiedErrorDisplay rawError={result.actual} />
                         </div>
                       ) : (
                         <div className="bg-background p-3 rounded">
@@ -254,7 +288,7 @@ export function StructuredTestCases({
                         <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-md mt-2">
                           <div className="text-red-400 font-semibold text-sm mb-2">Execution Error:</div>
                           <div className="text-red-300 font-mono text-sm whitespace-pre-wrap leading-relaxed">
-                              {result.error}
+                            {result.error}
                           </div>
                         </div>
                       )}

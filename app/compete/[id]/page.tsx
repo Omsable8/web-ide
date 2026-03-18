@@ -16,7 +16,7 @@ import { PerformanceAnalyzer } from '@/components/performance-analyzer'
 import { useDebugger } from '@/hooks/use-debugger'
 import { ProtectedRoute } from '@/components/protected-route'
 import { useAuth } from '@/lib/auth-context'
-
+import { simplifyError } from '@/components/structured-test-cases'
 interface Problem {
   id: string
   title: string
@@ -254,10 +254,11 @@ function ProblemDetailPage() {
       } else if (!result.success) {
         // Display compilation/runtime error
         const errorMsg = result.error || 'Unknown error occurred'
+        const simplified_errorMsg = await simplifyError(errorMsg)
         setTestResults([{ 
           test_id:'NA',
           passed: false, 
-          error: errorMsg,
+          error: simplified_errorMsg,
           input_params: [{}],
           expected: 'N/A',
           actual: 'N/A'
@@ -294,18 +295,19 @@ function ProblemDetailPage() {
 
         // Store submission result and show modal
         setSubmissionResult({
-          total: result.total_tests,
-          passed: result.passed_tests,
+          total: result.total_tests || 0,
+          passed: result.passed_tests || 0,
           accepted: result.accepted || false
         })
         setShowSubmissionModal(true)
       } else if (!result.success) {
         // Display compilation/runtime error
         const errorMsg = result.error || 'Unknown error occurred'
+        const simplified_errorMsg = await simplifyError(errorMsg)
         setTestResults([{ 
           test_id:'NA',
           passed: false, 
-          error: errorMsg,
+          error: simplified_errorMsg,
           input_params: [{}],
           expected: 'N/A',
           actual: 'N/A'

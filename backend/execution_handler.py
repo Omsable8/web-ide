@@ -72,22 +72,8 @@ def run_tests(problem_id):
         private_test_cases = test_cases_response.json().get('private_test_cases') #PRIVATE
         test_cases = public_test_cases # Only run against public test cases for "Run Tests" endpoint
         # Flatten all test cases
-        all_test_inputs = [] # list of list of jsons
-        test_metadata = []
-        
-        for test_case in test_cases:
-            test_params_list = test_case.get('input_params', [])
-            if isinstance(test_params_list, str):
-                test_params_list = json.loads(test_params_list)
-            
-            for idx, test_params in enumerate(test_params_list):
-                all_test_inputs.append(test_params)
-                test_metadata.append({
-                    'test_id': f"{test_case['id']}_{idx}",
-                    'is_hidden': False,
-                    'type': 'public'
-                })
-        
+        # all_test_inputs = # list of list of jsons
+        all_test_inputs,test_metadata = flatten_test_cases(test_cases=test_cases) 
         # Add custom tests
         for cidx, custom_test in enumerate(custom_tests):
             test_params = custom_test.get('input_params', [])
@@ -114,36 +100,10 @@ def run_tests(problem_id):
         expected_outputs = solution_result.get('output', '').strip().split('---SEP---') if solution_result.get('output') else []
         
         # Match outputs with test cases
-        results = []
-        num_user_outputs = len(user_outputs)
-        num_expected_outputs = len(expected_outputs)
-        for i, metadata in enumerate(test_metadata):
-            actual = user_outputs[i].strip() if i < num_user_outputs else ''
-            expected = expected_outputs[i].strip() if i < num_expected_outputs else ''
-            error = user_result.get('error', '')
-            results.append({
-                'test_id': metadata['test_id'],
-                'input_params': all_test_inputs[i],
-                'expected': expected,
-                'actual': actual,
-                'error': error if error else None,
-                'passed': actual == expected,
-                'is_hidden': metadata['is_hidden'],
-                'type': metadata['type']
-            })
-        
+        results = match_test_cases_with_outputs(all_test_inputs, test_metadata, user_outputs, expected_outputs,user_result)
         passed_count = sum(1 for r in results if r['passed'])
-        pass_tc = []
-        fail_tc = []
-        for r in results:
-            if r['passed'] and r['type'] != 'custom':
-                pass_tc.append(r['test_id'])
-            elif r['passed'] and r['type'] == 'custom':
-                pass_tc.append(r['input_params'])
-            elif not r['passed'] and r['type'] != 'custom':
-                fail_tc.append(r['test_id'])
-            elif not r['passed'] and r['type'] == 'custom':
-                fail_tc.append(r['input_params'])
+        pass_tc, fail_tc = bifuracte_pass_fail_tc(results)
+        
         logger = DataLogger()
         logger.log_submission(
             uid=user_id,
@@ -203,22 +163,7 @@ def submit_code(problem_id):
         private_test_cases = test_cases_response.json().get('private_test_cases', [])
         test_cases = public_test_cases + private_test_cases
         # Flatten all test cases (public + private)
-        all_test_inputs = []
-        test_metadata = []
-        
-        for test_case in test_cases:
-            test_params_list = test_case.get('input_params', [])
-            if isinstance(test_params_list, str):
-                test_params_list = json.loads(test_params_list)
-            
-            for idx, test_params in enumerate(test_params_list):
-                all_test_inputs.append(test_params)
-                test_metadata.append({
-                    'test_id': f"{test_case['id']}_{idx}",
-                    'is_hidden': test_case.get('is_hidden', False),
-                    'type': 'private' if test_case.get('is_hidden') else 'public'
-                })
-        
+        all_test_inputs,test_metadata = flatten_test_cases(test_cases=test_cases)
         
         total_tests = len(all_test_inputs)
         
@@ -236,37 +181,11 @@ def submit_code(problem_id):
         expected_outputs = solution_result.get('output', '').strip().split('---SEP---') if solution_result.get('output') else []
         
         # Match outputs with test cases
-        results = []
-        num_user_outputs = len(user_outputs)
-        num_expected_outputs = len(expected_outputs)
-        for i, metadata in enumerate(test_metadata):
-            actual = user_outputs[i].strip() if i < num_user_outputs else ''
-            expected = expected_outputs[i].strip() if i < num_expected_outputs else ''
-            error = user_result.get('error', '')
-            results.append({
-                'test_id': metadata['test_id'],
-                'input_params': all_test_inputs[i],
-                'expected': expected,
-                'actual': actual,
-                'error': error if error else None,
-                'passed': actual == expected,
-                'is_hidden': metadata['is_hidden'],
-                'type': metadata['type']
-            })
-        
+        results = match_test_cases_with_outputs(all_test_inputs, test_metadata, user_outputs, expected_outputs,user_result)
+
         passed_count = sum(1 for r in results if r['passed'])
         all_passed = passed_count == len(results)
-        pass_tc = []
-        fail_tc = []
-        for r in results:
-            if r['passed'] and r['type'] != 'custom':
-                pass_tc.append(r['test_id'])
-            elif r['passed'] and r['type'] == 'custom':
-                pass_tc.append(r['input_params'])
-            elif not r['passed'] and r['type'] != 'custom':
-                fail_tc.append(r['test_id'])
-            elif not r['passed'] and r['type'] == 'custom':
-                fail_tc.append(r['input_params'])
+        pass_tc, fail_tc = bifuracte_pass_fail_tc(results)
         logger = DataLogger()
         logger.log_submission(
             uid=user_id,
@@ -293,7 +212,60 @@ def submit_code(problem_id):
         print(f"[ERROR] Submit code failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+    
+def flatten_test_cases(test_cases:list[dict]) -> tuple[list[dict], list[dict]]:
+    all_test_inputs = []
+    test_metadata = []
+    
+    for test_case in test_cases:
+        test_params_list = test_case.get('input_params', [])
+        if isinstance(test_params_list, str):
+            test_params_list = json.loads(test_params_list)
+        
+        for idx, test_params in enumerate(test_params_list):
+            all_test_inputs.append(test_params)
+            test_metadata.append({
+                'test_id': f"{test_case['id']}_{idx}",
+                'is_hidden': test_case.get('is_hidden', False),
+                'type': 'private' if test_case.get('is_hidden') else 'public'
+            })
+    return all_test_inputs, test_metadata
 
+def match_test_cases_with_outputs(all_test_inputs:list[dict],test_metadata:str, user_outputs:list[str], expected_outputs:list[str],user_result:dict) -> list[dict]:
+    """Match user outputs with expected outputs and test cases"""
+    results = []
+    num_user_outputs = len(user_outputs)
+    num_expected_outputs = len(expected_outputs)
+    for i, metadata in enumerate(test_metadata):
+        actual = user_outputs[i].strip() if i < num_user_outputs else ''
+        expected = expected_outputs[i].strip() if i < num_expected_outputs else ''
+        error = user_result.get('error')
+        results.append({
+            'test_id': metadata['test_id'],
+            'input_params': all_test_inputs[i],
+            'expected': expected,
+            'actual': actual,
+            'error': error if error else None,
+            'passed': actual == expected,
+            'is_hidden': metadata['is_hidden'],
+            'type': metadata['type']
+        })
+    
+    return results
+
+def bifuracte_pass_fail_tc(results:list[dict]) -> tuple[list, list]:
+    pass_tc = []
+    fail_tc = []
+    for r in results:
+        if r['passed'] and r['type'] != 'custom':
+            pass_tc.append(r['test_id'])
+        elif r['passed'] and r['type'] == 'custom':
+            pass_tc.append(r['input_params'])
+        elif not r['passed'] and r['type'] != 'custom':
+            fail_tc.append(r['test_id'])
+        elif not r['passed'] and r['type'] == 'custom':
+            fail_tc.append(r['input_params'])
+    return pass_tc, fail_tc
 
 def build_stdin(test_inputs, language):
     """
