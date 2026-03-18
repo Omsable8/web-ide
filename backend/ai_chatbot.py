@@ -120,13 +120,22 @@ class AIChatbot:
             raise Exception(f"OpenRouter API Error: {response.text}")
     
     def simplify_error(self,raw_stack_trace):
-        system_prompt = "You are an error simplification assistant for students; extract line numbers from Python, Java, or C++ stack traces and explain the core issue simply in the exact format 'line [number] : [one-sentence beginner-friendly explanation]', outputting absolutely nothing else."
+        system_prompt = '''You are an error simplification assistant for students.
+        Instructions:
+        1) extract line numbers from Python, Java, or C++ stack traces and explain the core issue simply in the exact format :
+            'line [number] : [one-sentence beginner-friendly explanation]'.
+        2) outputting absolutely nothing else.
+        3) Give a markdown version of the explanation, with line numbers in bold and explanations in italics.
+        '''
         
         try:
             payload = {"model": self.model,
                 "messages":[{"role": "system", "content": system_prompt},
                             {"role": "user", "content": f"Simplify this error:\n\n{raw_stack_trace}"}],
-                "max_tokens":150,
+                "max_tokens":300,
+                "reasoning": {
+                    "effort": "minimal"
+                },
                 "temperature":0.1 # Low temperature for strict adherence to format
             }
             headers={
@@ -136,7 +145,8 @@ class AIChatbot:
             response = requests.post("https://openrouter.ai/api/v1/chat/completions",headers=headers,json=payload)
                 
             data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
+            
+            return data["choices"][0]["message"]["content"]
         except Exception as e:
             print(f"OpenAI API failed: {e}")
             return raw_stack_trace # Fallback to raw error if the API call fails

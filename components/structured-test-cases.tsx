@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react'
-
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm';
 interface InputParam {
   name: string
   type: string
@@ -68,7 +69,9 @@ function SimplifiedErrorDisplay({ rawError }: { rawError: string }) {
 
   return (
     <div className="text-red-300 font-mono text-sm whitespace-pre-wrap break-all leading-relaxed">
-      {errorMsg}
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {errorMsg}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -286,9 +289,11 @@ export function StructuredTestCases({
 
                       {result.error && (
                         <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-md mt-2">
-                          <div className="text-red-400 font-semibold text-sm mb-2">Execution Error:</div>
+                          <div className="text-red-400 font-semibold text-sm mb-2">Compilation Error:</div>
                           <div className="text-red-300 font-mono text-sm whitespace-pre-wrap leading-relaxed">
-                            {result.error}
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}> 
+                              {result.error}
+                            </ReactMarkdown>
                           </div>
                         </div>
                       )}
