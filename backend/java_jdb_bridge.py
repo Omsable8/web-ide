@@ -1,6 +1,6 @@
 import socket
 import sys
-import os
+import re
 import json
 import subprocess
 import threading
@@ -11,6 +11,9 @@ class JdbBridge:
         self.current_line = 1
         self.suppress_logs = False
         self.variables_cache = {}
+        self.dumping_var = None   # Tracks which variable is currently being dumped
+        self.dump_buffer = []     # Accumulates the multiline dump output
+        self.dump_depth = 0      # Tracks nested braces in dumps
         self.running = True
         self.port = port
         self.main_class = main_class
@@ -91,24 +94,86 @@ class JdbBridge:
 
     def _read_jdb_output(self):
         """Read JDB output, parse variables, and strictly filter frontend logs"""
-        import re
-        
+
         while self.running and self.jdb_process:
             try:
                 line = self.jdb_process.stdout.readline()
                 if not line: break
-                line = line.strip()
                 
-                # --- 1. Variable Parsing (Always runs) ---
-                # Capture variables but don't show them
+                # Clean the line and strip the JDB prompt immediately
+                line = line.strip()
+                line = re.sub(r'^main\[\d+\]\s*>?[ \t]*', '', line)
+                if not line: continue
+
+                # --- 0. Multiline Dump Parsing (STRICT & DEPTH-AWARE) ---
+                if self.dumping_var:
+                    self.dump_buffer.append(line)
+                    
+                    # Track nested brackets to know when the object is fully dumped
+                    if "{" in line:
+                        self.dump_depth += line.count("{")
+                    if "}" in line:
+                        self.dump_depth -= line.count("}")
+                        
+                    if self.dump_depth <= 0:
+                        # We've reached the very end of the complex array/object
+                        formatted_val = " ".join(self.dump_buffer)
+                        formatted_val = re.sub(r'\s+', ' ', formatted_val) # Remove extra spacing
+                        formatted_val = formatted_val.replace(", }", " }")
+                        
+                        self.variables_cache[self.dumping_var] = formatted_val
+                        
+                        # Reset state
+                        self.dumping_var = None
+                        self.dump_buffer = []
+                        self.dump_depth = 0
+                    continue
+
+                # STRICT detection of a JDB dump start (Matches EXACTLY "varName = {")
+                dump_match = re.match(r'^([a-zA-Z0-9_$]+)\s*=\s*\{$', line)
+                if dump_match and dump_match.group(1) in self.variables_cache:
+                    self.dumping_var = dump_match.group(1)
+                    self.dump_buffer = ["{"]
+                    self.dump_depth = 1
+                    self.suppress_logs = True # Hide dump output from frontend
+                    continue
+
+                # --- 1. Standard Variable Parsing ---
                 if " = " in line and not line.startswith("[") and "Method arguments:" not in line and "Local variables:" not in line:
                     parts = line.split(" = ", 1)
                     if len(parts) == 2:
                         var_name = parts[0].strip()
-                        # specific filter: ignore 'i' if it's just the loop counter to avoid spam? 
-                        # No, let's keep everything for now.
-                        self.variables_cache[var_name] = parts[1].strip()
+                        var_val = parts[1].strip()
+                        
+                        # INTERCEPT BACKGROUND ARRAY EVALUATIONS
+                        if "java.util.Arrays." in var_name:
+                            match = re.search(r'ToString\(([a-zA-Z0-9_$]+)\)', var_name)
+                            if match:
+                                actual_name = match.group(1).strip()
+                                # Strip the extra double quotes JDB puts around evaluated strings
+                                if var_val.startswith('"') and var_val.endswith('"'):
+                                    var_val = var_val[1:-1]
+                                self.variables_cache[actual_name] = var_val
+                                self.suppress_logs = True # Hide this transaction from frontend
+                            continue
 
+                        # Store the initial memory address or primitive value
+                        
+                        # TRIGGER BACKGROUND EVALUATION BASED ON DATATYPE
+                        if "instance of" in var_val:
+                            if "][" in var_val: 
+                                # 2D Array or higher (e.g., int[][3])
+                                self._write_jdb(f'print java.util.Arrays.deepToString({var_name})')
+                            elif "[" in var_val: 
+                                # 1D Array (e.g., int[5] or String[3])
+                                self._write_jdb(f'print java.util.Arrays.toString({var_name})')
+                            elif "java.lang." in var_val: 
+                                # Wrapper classes (Integer, Double, String)
+                                self._write_jdb(f'print {var_name}')
+                            else: 
+                                # Custom Objects (Nodes, Trees, HashMaps) fall back to multiline dump
+                                self._write_jdb(f'dump {var_name}')
+                        self.variables_cache[var_name] = var_val        
                 # --- 2. Noise Detection Logic ---
                 is_noise = False
                 

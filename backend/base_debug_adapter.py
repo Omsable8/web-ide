@@ -298,6 +298,34 @@ class BaseDebugAdapter(ABC):
             
             if vars_response:
                 variables = vars_response.body.get('variables', [])
+                
+                # --- NEW: AUTO-EXPAND COMPLEX TYPES (ARRAYS/OBJECTS) ---
+                for var in variables:
+                    var_ref = var.get('variablesReference', 0)
+                    if var_ref > 0:
+                        # Query the children of this complex datatype
+                        child_resp = self._send_request("variables", {"variablesReference": var_ref}, timeout=2.0)
+                        if child_resp:
+                            children = child_resp.body.get('variables', [])
+                            
+                            # Determine if it's an array/vector or a dictionary/struct
+                            is_array = False
+                            if children and any(c.get('name', '').startswith('[') or c.get('name', '').isdigit() for c in children):
+                                is_array = True
+                                
+                            if is_array:
+                                # Extract just the values (ignore metadata like 'length' or capacity)
+                                vals = [c.get('value', '...') for c in children if c.get('name', '').startswith('[') or c.get('name', '').isdigit()]
+                                var['value'] = f"[{', '.join(vals)}]"
+                            else:
+                                # Extract key-value pairs for structs/dicts
+                                pairs = [f"{c.get('name')}: {c.get('value')}" for c in children if not c.get('name', '').startswith('__')]
+                                var['value'] = f"{{{', '.join(pairs)}}}"
+                                
+                            # Set reference to 0 so the frontend knows it's fully resolved
+                            var['variablesReference'] = 0
+                # -------------------------------------------------------
+
                 self.log(f"  Found {len(variables)} variables in '{scope_name}'")
                 all_variables.extend(variables)
         
