@@ -17,7 +17,7 @@ import { PerformanceAnalyzer } from '@/components/performance-analyzer'
 import { useDebugger } from '@/hooks/use-debugger'
 import { ProtectedRoute } from '@/components/protected-route'
 import { useAuth } from '@/lib/auth-context'
-import { features } from 'process'
+import { validateInput, formatInputValue, InputType } from '@/lib/inputParser'
 import { simplifyError } from '@/components/structured-test-cases'
 
 interface Problem {
@@ -238,14 +238,16 @@ function ProblemDetailPage() {
   const handleRunTests = async () => {
     if (!code.trim()) return
     
-    // Validate custom test cases - no empty input fields
-    const hasEmptyCustomTestCase = customTestCases.some(tc =>
-      tc.input_params.some(param => !param.value || String(param.value).trim() === '')
-    )
-    
-    if (hasEmptyCustomTestCase) {
-      alert('Please fill in all input fields in custom test cases before running tests.')
-      return
+    // 1. Robust Validation
+    for (let i = 0; i < customTestCases.length; i++) {
+      for (const param of customTestCases[i].input_params) {
+        const validation = validateInput(String(param.value || ''), param.type as InputType)
+        if (!validation.valid) {
+          // Alert the user exactly which field is wrong and how to fix it
+          alert(`Custom Test Case ${i + 1} Error in '${param.name}': ${validation.error}`)
+          return // Stop execution immediately
+        }
+      }
     }
     
     setRunning(true)
@@ -292,6 +294,17 @@ function ProblemDetailPage() {
 
   const handleSubmit = async () => {
     if (!code.trim()) return
+    // 1. Robust Validation
+    for (let i = 0; i < customTestCases.length; i++) {
+      for (const param of customTestCases[i].input_params) {
+        const validation = validateInput(String(param.value || ''), param.type as InputType)
+        if (!validation.valid) {
+          // Alert the user exactly which field is wrong and how to fix it
+          alert(`Custom Test Case ${i + 1} Error in '${param.name}': ${validation.error}`)
+          return // Stop execution immediately
+        }
+      }
+    }
     setRunning(true)
     try {
       const result = await submitCode(problemId, code, language, customTestCases)

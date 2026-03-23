@@ -54,8 +54,7 @@ export function StructuredTestInput({ inputFields, onAddTest, onClose }: Structu
     }))
 
     onAddTest({
-      input_params: inputParams,
-      expected_output: expectedOutput.trim(),
+      input_params: inputParams
     })
 
     // Reset form
