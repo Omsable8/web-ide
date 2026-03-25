@@ -52,6 +52,13 @@ export function MonacoEditorInstance({
   const editorRef = useRef<any>(null)
   const monacoRef = useRef<any>(null)
   const decorationIdsRef = useRef<string[]>([])
+  // Add this near your other refs
+  const breakpointsRef = useRef<number[]>(breakpoints)
+
+  // Add this effect to keep the ref updated whenever the parent changes the breakpoints
+  useEffect(() => {
+    breakpointsRef.current = breakpoints
+  }, [breakpoints])
   
   // Vim Refs
   const vimInstanceRef = useRef<any>(null)
@@ -112,15 +119,18 @@ export function MonacoEditorInstance({
 
     // Breakpoint Click Listener
     editor.onMouseDown((e: any) => {
-      if ((e.target?.type === 1 || e.target?.type === 2) && e.target?.position?.lineNumber) {
+      if ([2, 3, 4].includes(e.target?.type) && e.target?.position?.lineNumber) {
         const line = e.target.position.lineNumber
-        const newBreakpoints = [...breakpoints]
+        
+        // Use the ref here instead of the stale `breakpoints` prop!
+        const currentBreakpoints = breakpointsRef.current
+        const newBreakpoints = [...currentBreakpoints]
         const index = newBreakpoints.indexOf(line)
 
         if (index > -1) {
-          newBreakpoints.splice(index, 1)
+          newBreakpoints.splice(index, 1) // Remove
         } else {
-          newBreakpoints.push(line)
+          newBreakpoints.push(line) // Add
         }
         onBreakpointsChange?.(newBreakpoints.sort((a, b) => a - b))
       }
