@@ -32,8 +32,8 @@ const shortcuts = [
   {
     category: "Editor - Text Manipulation",
     items: [
-      { keys: ["Ctrl", "U"], description: "Transform to uppercase" },
-      { keys: ["Ctrl", "Shift", "U"], description: "Transform to lowercase" },
+      { keys: ["Ctrl", "F"], description: "Find" },
+      { keys: ["Ctrl", "H"], description: "Find & Replace" },
       { keys: ["Ctrl", "/"], description: "Toggle line comment" },
     ],
   },
@@ -60,7 +60,12 @@ export const DevPreferences: React.FC<Props> = ({ isOpen, onClose }) => {
     }
     return 'vscode'
   });
-
+  const handleKeyBindingsChange = (binding: 'vscode' | 'vim' | 'emacs') => {
+      setKeyBindings(binding);
+      localStorage.setItem('keyBindings', binding);
+      // Dispatch event to update monaco editor
+      window.dispatchEvent(new CustomEvent('editorKeybindingsChange', { detail: { binding } }));
+   };
   const handleThemeChange = (theme: 'light' | 'dark') => {
     setEditorTheme(theme);
     localStorage.setItem('editorTheme', theme);
@@ -167,13 +172,13 @@ export const DevPreferences: React.FC<Props> = ({ isOpen, onClose }) => {
                     <h3 className="text-sm font-semibold text-accent uppercase tracking-wide">Key Bindings</h3>
                     <div className="flex gap-3">
                        <button 
-                         onClick={() => setKeyBindings('vscode')}
+                         onClick={() => handleKeyBindingsChange('vscode')}
                          className={clsx("px-4 py-2 rounded border-2 font-medium transition-colors", keyBindings === 'vscode' ? "border-accent bg-accent/20 text-accent" : "border-border bg-muted text-muted-foreground hover:border-accent")}
                        >
                          VS Code
                        </button>
                        <button 
-                         onClick={() => setKeyBindings('vim')}
+                         onClick={() => handleKeyBindingsChange('vim')}
                          className={clsx("px-4 py-2 rounded border-2 font-medium transition-colors", keyBindings === 'vim' ? "border-accent bg-accent/20 text-accent" : "border-border bg-muted text-muted-foreground hover:border-accent")}
                        >
                          Vim
