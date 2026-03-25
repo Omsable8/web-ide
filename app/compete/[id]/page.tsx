@@ -672,7 +672,7 @@ function ProblemDetailPage() {
               document.addEventListener('mousemove', handleMouseMove)
               document.addEventListener('mouseup', handleMouseUp)
             }}
-            className="w-0.5 bg-border hover:bg-accent cursor-col-resize transition-colors"
+            className="w-4 shrink-0 bg-clip-content px-[7px] bg-border hover:bg-accent cursor-col-resize transition-colors"
           />
         )}
         {/* Middle Panel - Code Editor with Debug Window below */}
@@ -728,7 +728,7 @@ function ProblemDetailPage() {
                 document.addEventListener('mousemove', handleMouseMove)
                 document.addEventListener('mouseup', handleMouseUp)
               }}
-              className="w-0.5 bg-border hover:bg-accent cursor-col-resize transition-colors"
+              className="w-4 shrink-0 bg-clip-content px-[7px] bg-border hover:bg-accent cursor-col-resize transition-colors"
             />
             <div style={{ width: `${chatbotWidth}px` }} className="flex flex-col overflow-hidden flex-shrink-0">
               <div className="h-12 border-b border-border flex items-center justify-between px-4 flex-shrink-0">
