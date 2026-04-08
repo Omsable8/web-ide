@@ -1,12 +1,17 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <map>
 using namespace std;
 
 class Solution {
 public:
     vector<int> leftRotate(vector<int>& arr, int k) {
-        vector<vector<int>> matrix(3,vector<int>(3,0));
+        // vector<vector<int>> matrix = vector(3,vector<int>(3,0));
+        int matrix[3][3] = {{1,2,3},{4,5,6}};
+        map<int,int> mp;
+        mp[1] = 1;
+        mp[2] = 4;
         for(int i=0;i<arr.size();i++){
             arr[i] = k;
         }

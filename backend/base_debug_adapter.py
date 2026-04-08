@@ -255,81 +255,129 @@ class BaseDebugAdapter(ABC):
             return []
     
     def get_variables(self, frame_id: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Get local variables for a specific frame"""
+        """Primary entry point for variable fetching with language dispatching"""
         if frame_id is None:
             stack = self.get_stack_trace()
-            if not stack:
-                self.log("WARNING: No stack frames available")
-                return []
+            if not stack: return []
             frame_id = stack[0]['id']
-            self.log(f"Using top frame ID: {frame_id}")
         
-        # Get scopes for this frame
-        self.log(f"Getting scopes for frame {frame_id}")
-        scopes_response = self._send_request("scopes", {
-            "frameId": frame_id
-        })
-        
-        if not scopes_response:
-            self.log("ERROR: Failed to get scopes")
-            return []
+        scopes_response = self._send_request("scopes", {"frameId": frame_id})
+        if not scopes_response: return []
         
         scopes = scopes_response.body.get('scopes', [])
-        self.log(f"Got {len(scopes)} scopes: {[s.get('name') for s in scopes]}")
-        
-        if not scopes:
-            return []
-        
-        # Get variables from all scopes (locals, globals)
         all_variables = []
-        for scope in scopes:
-            scope_name = scope.get('name', 'unknown')
-            if scope_name == "Globals" or scope_name == "Registers":
-                continue # Skip globals to reduce noise, can be enabled if needed
-            var_ref = scope.get('variablesReference', 0)
-            
-            if var_ref == 0:
-                continue
-            
-            self.log(f"Getting variables for scope '{scope_name}' (ref: {var_ref})")
-            vars_response = self._send_request("variables", {
-                "variablesReference": var_ref
-            })
-            
-            if vars_response:
-                variables = vars_response.body.get('variables', [])
-                
-                # --- NEW: AUTO-EXPAND COMPLEX TYPES (ARRAYS/OBJECTS) ---
-                for var in variables:
-                    var_ref = var.get('variablesReference', 0)
-                    if var_ref > 0:
-                        # Query the children of this complex datatype
-                        child_resp = self._send_request("variables", {"variablesReference": var_ref}, timeout=2.0)
-                        if child_resp:
-                            children = child_resp.body.get('variables', [])
-                            
-                            # Determine if it's an array/vector or a dictionary/struct
-                            is_array = False
-                            if children and any(c.get('name', '').startswith('[') or c.get('name', '').isdigit() for c in children):
-                                is_array = True
-                                
-                            if is_array:
-                                # Extract just the values (ignore metadata like 'length' or capacity)
-                                vals = [c.get('value', '...') for c in children if c.get('name', '').startswith('[') or c.get('name', '').isdigit()]
-                                var['value'] = f"[{', '.join(vals)}]"
-                            else:
-                                # Extract key-value pairs for structs/dicts
-                                pairs = [f"{c.get('name')}: {c.get('value')}" for c in children if not c.get('name', '').startswith('__')]
-                                var['value'] = f"{{{', '.join(pairs)}}}"
-                                
-                            # Set reference to 0 so the frontend knows it's fully resolved
-                            var['variablesReference'] = 0
-                # -------------------------------------------------------
+        lang = self.get_language().lower()
 
-                self.log(f"  Found {len(variables)} variables in '{scope_name}'")
-                all_variables.extend(variables)
-        
+        for scope in scopes:
+            if scope.get('name') in ["Globals", "Registers", "Static"]: continue
+            
+            var_ref = scope.get('variablesReference', 0)
+            if var_ref == 0: continue
+            
+            vars_response = self._send_request("variables", {"variablesReference": var_ref})
+            if not vars_response: continue
+            
+            variables = vars_response.body.get('variables', [])
+            
+            # Dispatch to specific language resolver
+            if lang == 'python':
+                all_variables.extend(self._resolve_python_variables(variables))
+            elif lang in ['cpp', 'c++']:
+                all_variables.extend(self._resolve_cpp_variables(variables))
+            else:
+                all_variables.extend(variables) # Default fallback
+                
         return all_variables
+
+    def _resolve_python_variables(self, variables: List[Dict]) -> List[Dict]:
+        """Pure Python logic based on your working reference code"""
+        processed = []
+        for var in variables:
+            name = var.get('name', '')
+            ref = var.get('variablesReference', 0)
+            
+            if name.startswith('__') or name in ['special variables', 'function variables', 'len()']:
+                continue
+
+            if ref > 0:
+                child_resp = self._send_request("variables", {"variablesReference": ref}, timeout=2.0)
+                if child_resp:
+                    children = child_resp.body.get('variables', [])
+                    clean_children = [
+                        c for c in children 
+                        if not c.get('name', '').startswith('__') 
+                        and c.get('name') not in ['len()', 'special variables', 'function variables']
+                    ]
+
+                    var_type = var.get('type', '').lower()
+                    is_map = 'dict' in var_type or 'map' in var_type or 'hash' in var_type
+                    is_list = 'list' in var_type or 'vector' in var_type or 'array' in var_type
+
+                    if is_list:
+                        vals = [c.get('value', '') for c in clean_children]
+                        var['value'] = f"[{', '.join(vals)}]"
+                    elif is_map:
+                        pairs = [f"{c.get('name')}: {c.get('value')}" for c in clean_children]
+                        var['value'] = f"{{{', '.join(pairs)}}}"
+                    else:
+                        is_numeric_keys = all(c.get('name', '').strip('[]').isdigit() for c in clean_children)
+                        if is_numeric_keys and clean_children:
+                            vals = [c.get('value', '') for c in clean_children]
+                            var['value'] = f"[{', '.join(vals)}]"
+                        else:
+                            pairs = [f"{c.get('name')}: {c.get('value')}" for c in clean_children]
+                            var['value'] = f"{{{', '.join(pairs)}}}"
+                
+                var['variablesReference'] = 0
+            processed.append(var)
+        return processed
+
+    def _resolve_cpp_variables(self, variables: List[Dict]) -> List[Dict]:
+        """Dedicated C++ logic for handling pointers and std::pair"""
+        processed = []
+        for var in variables:
+            if var.get('name', '').startswith('_'): continue
+            
+            ref = var.get('variablesReference', 0)
+            if ref > 0:
+                var['value'] = self._deep_resolve_cpp(ref)
+                var['variablesReference'] = 0
+            processed.append(var)
+        return processed
+
+    def _deep_resolve_cpp(self, ref: int) -> str:
+        """Recursive helper specifically for C++ memory structures"""
+        resp = self._send_request("variables", {"variablesReference": ref}, timeout=2.0)
+        if not resp: return "..."
+        
+        children = [c for c in resp.body.get('variables', []) if not c.get('name', '').startswith('_')]
+        if not children: return "[]"
+
+        # Detect if child is std::pair (Map entry)
+        if any('pair' in str(c.get('type', '')).lower() for c in children):
+            pairs = []
+            for c in children:
+                p_ref = c.get('variablesReference', 0)
+                if p_ref > 0:
+                    p_resp = self._send_request("variables", {"variablesReference": p_ref})
+                    if p_resp:
+                        pc = p_resp.body.get('variables', [])
+                        k = next((x.get('value') for x in pc if x.get('name') in ['first', '[0]']), "?")
+                        v = next((x.get('value') for x in pc if x.get('name') in ['second', '[1]']), "?")
+                        pairs.append(f"{k}: {v}")
+            return f"{{{', '.join(pairs)}}}"
+
+        # Handle Arrays/Vectors/Matrix
+        is_numeric = all(c.get('name', '').strip('[]').isdigit() for c in children)
+        if is_numeric:
+            vals = []
+            for c in children:
+                c_ref = c.get('variablesReference', 0)
+                vals.append(self._deep_resolve_cpp(c_ref) if c_ref > 0 else c.get('value'))
+            return f"[{', '.join(vals)}]"
+        hashmaps = ", ".join([f'{c.get("name")}: {c.get("value")}' for c in children] )
+        return '{'+hashmaps+'}'
+        
     
     def get_current_state(self) -> Optional[Dict[str, Any]]:
         """Get complete current debugger state"""

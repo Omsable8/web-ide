@@ -414,59 +414,25 @@ def _perform_cleanup(sid, reason="unknown"):
         print(f"[SERVER] Error leaving room: {e}")
 
 def format_variables(variables: list) -> dict:
-    """
-    Format variables for frontend display.
-    """
     result = {}
-    block_list = ['sys','json','os','t','_','special variables', 'global variables', 'local variables', 'function variables'
-                  ,'class variables','self', 'cls', 'optional','sol','line']
-    # 1. Blocklist: Exact names to ignore
-    IGNORED_NAMES = {
-        'self','class variables', 'this', 'local variables', 'global variables','special variables','function variables'# Common runner/driver variables
-    }
+    # Strict ignore list to keep the Visualizer clean
+    IGNORED_NAMES = {'self', 'cls', 'this', 'sol', 'solution'}
     
-    # 2. Pattern Blocklist (Regex)
-    # Filter out "special variables", "function variables", etc.
-    IGNORED_PATTERNS = [
-        r'^<.*>$',                  # Matches <module 'json'>, <function ...>
-        r'^_.*',                    # Matches _private_vars (optional, usually good to hide)
-        r'.* module$',              # Matches module objects if description leaks
-        r'.*line.*',                # Variables that include 'line' in their name (often internal state)
-        r'.*frame.*',               # Variables that include 'frame' in their name (often internal state)
-
-    ]
-
     for var in variables:
         name = var.get('name', '')
         value = var.get('value', '')
-        var_type = var.get('type', '')
         
-        # --- FILTER 1: Exact Match ---
-        if name in IGNORED_NAMES:
+        # 1. Filter out internal references
+        if name in IGNORED_NAMES or name.startswith('_'):
             continue
             
-        # --- FILTER 2: Pattern Match ---
-        # Skip if name matches any ignored pattern
-        if any(re.search(pat, name, re.IGNORECASE) for pat in IGNORED_PATTERNS):
+        # 2. Filter out function/module pointers that might leak
+        if any(x in str(value) for x in ['<function', '<module', '<class']):
             continue
 
-        # --- FILTER 3: Value/Type-based Filtering ---
-        # Hide modules, functions, and classes (unless you want to show them)
-        if 'module' in var_type or 'function' in var_type or 'class' in var_type:
-            continue
-            
-        # Hide complex Dunder variables (double underscore)
-        if name.startswith('__') and name.endswith('__'):
-            continue
-        # --- Formatting ---
-        # Include type for non-primitives, but keep it clean
-        if var_type and var_type not in ['int', 'str', 'float', 'bool', 'list', 'dict', 'set', 'vector']:
-            result[name] = f"{value} ({var_type})"
-        else:
-            result[name] = value
+        result[name] = value
         
     return result
-
 
 if __name__ == '__main__':
     print("\n" + "="*60)
