@@ -422,7 +422,7 @@ def format_variables(variables: list) -> dict:
                   ,'class variables','self', 'cls', 'optional','sol','line']
     # 1. Blocklist: Exact names to ignore
     IGNORED_NAMES = {
-        'self','class variables', 'local variables', 'global variables','special variables','function variables'# Common runner/driver variables
+        'self','class variables', 'this', 'local variables', 'global variables','special variables','function variables'# Common runner/driver variables
     }
     
     # 2. Pattern Blocklist (Regex)
@@ -460,7 +460,7 @@ def format_variables(variables: list) -> dict:
             continue
         # --- Formatting ---
         # Include type for non-primitives, but keep it clean
-        if var_type and var_type not in ['int', 'str', 'float', 'bool', 'list', 'dict', 'set']:
+        if var_type and var_type not in ['int', 'str', 'float', 'bool', 'list', 'dict', 'set', 'vector']:
             result[name] = f"{value} ({var_type})"
         else:
             result[name] = value

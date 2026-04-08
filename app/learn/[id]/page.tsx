@@ -15,6 +15,7 @@ import { DevPreferences } from '@/components/dev-preferences'
 import { ExamplesDisplay } from '@/components/examples-display'
 import { PerformanceAnalyzer } from '@/components/performance-analyzer'
 import { useDebugger } from '@/hooks/use-debugger'
+import { VisualDebugger } from '@/components/visual-debugger'
 import { ProtectedRoute } from '@/components/protected-route'
 import { useAuth } from '@/lib/auth-context'
 import { validateInput, formatInputValue, InputType } from '@/lib/inputParser'
@@ -133,9 +134,12 @@ function ProblemDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showDebugWindow, setShowDebugWindow] = useState(false)
   const [isDebugging, setIsDebugging] = useState(false)
+
+  // Add a new state to track which debugger is open
+  const [showVisualDebugger, setShowVisualDebugger] = useState(false)
   const [breakpoints, setBreakpoints] = useState<number[]>([])
   const [currentExecutionLine, setCurrentExecutionLine] = useState<number | null>(null)
-  // Inside ProblemDetailPage component
+  
   const [leftPanelWidth, setLeftPanelWidth] = useState(384) // Default 96 (w-96)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   const handleToggleHint = async (hintLevel: number, isOpening: boolean) => {
@@ -380,11 +384,35 @@ function ProblemDetailPage() {
       setIsDebugging(false)
     }
   }
-
   const handleStopDebug = () => {
     stopDebugger()
     setIsDebugging(false)
     setShowDebugWindow(false)
+    setCurrentExecutionLine(null)
+  }
+  // Modify handleDebug to support visual mode
+  const handleVisualDebug = async () => {
+    if (!code.trim()) return
+    setIsDebugging(true)
+    setShowVisualDebugger(true) // Open the visual one
+    setShowDebugWindow(false)    // Ensure standard one is closed
+    
+    // Track feature usage
+    const uid = localStorage.getItem('uid') || ''
+    // updateFeaturesUsed(uid, problemId, { debug_btn: 1 }, { debug_btn: 0 })
+    
+    try {
+      startDebugger(code, language, breakpoints, problemId, '')
+    } catch (error) {
+      console.error('Failed to start visual debugger:', error)
+      setIsDebugging(false)
+    }
+  }
+  const handleStopVisualDebug = () => {
+    stopDebugger()
+    setIsDebugging(false)
+    setShowDebugWindow(false)
+    setShowVisualDebugger(false) // Close visualizer
     setCurrentExecutionLine(null)
   }
 
@@ -542,6 +570,10 @@ function ProblemDetailPage() {
           <Button size="sm" onClick={handleDebug} disabled={isDebugging} variant="outline" className="gap-2 bg-transparent">
             <Bug className="w-4 h-4" />
             Debug
+          </Button>
+          <Button size="sm" onClick={handleVisualDebug} disabled={isDebugging} variant="outline" className="gap-2 bg-blue-500/10 border-blue-500/50 text-blue-400">
+            <Zap className="w-4 h-4" />
+            Visual Debug
           </Button>
           <Button size="sm" variant="ghost" onClick={() => {
             setShowDevPreferences(true);
@@ -730,6 +762,16 @@ function ProblemDetailPage() {
             onStepInto={stepInto}
             onStepOut={stepOut}
             onStop={handleStopDebug}
+            isRunning={isDebugging}
+          />
+          <VisualDebugger
+            isOpen={showVisualDebugger}
+            onClose={handleStopVisualDebug}
+            debugState={debugState}
+            onStepOver={stepOver}
+            onStepInto={stepInto}
+            onStepOut={stepOut}
+            onStop={handleStopVisualDebug}
             isRunning={isDebugging}
           />
         </div>
