@@ -207,18 +207,18 @@ export function AIChatbot({
             {showModelMenu && (
               <div className="absolute bottom-full mb-1 right-0 bg-card border border-border rounded shadow-lg z-10 min-w-max">
                 {/* kept for fallback */}
-                {/* <button
-                  onClick={() => handleModelChange("openai/gpt-oss-20b:free")}
+                <button
+                  onClick={() => handleModelChange("openai/gpt-oss-120b")}
                   className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
                 >
                   openai/gpt-oss
                 </button>
                 <button
-                  onClick={() => handleModelChange("stepfun/step-3.5-flash:free")}
+                  onClick={() => handleModelChange("stepfun/openai/gpt-4.1-nano")}
                   className="block w-full text-left px-3 py-2 text-xs hover:bg-muted text-foreground"
                   >
-                  stepfun/step-3.5-flash
-                </button> */}
+                  openai/gpt-4.1-nano
+                </button>
                 <button
                   onClick={() => handleModelChange("openai/gpt-5-nano")}
                   className={`block w-full text-left px-3 py-2 text-xs ${
