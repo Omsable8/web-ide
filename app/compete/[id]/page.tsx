@@ -135,6 +135,7 @@ function ProblemDetailPage() {
   const [showVisualDebugger, setShowVisualDebugger] = useState(false)
   const [breakpoints, setBreakpoints] = useState<number[]>([])
   const [currentExecutionLine, setCurrentExecutionLine] = useState<number | null>(null)
+  const [errorLines, setErrorLines] = useState<number[]>([])
   // Inside ProblemDetailPage component
   const [leftPanelWidth, setLeftPanelWidth] = useState(384) // Default 96 (w-96)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
@@ -235,6 +236,19 @@ function ProblemDetailPage() {
 
   }, [language, problemId])
 
+  //helper function
+  const ExtractErrorLines = (simplified_errorMsg: string) => {
+    // Regex matches "line", optional space, digits, and a colon
+    
+    const lines = simplified_errorMsg.split('\n')
+        .map(line => line.match(/line\s*(\d+)/i)) // 'i' flag for case-insensitive
+        .filter(match => match !== null)
+        .map(match => parseInt(match![1]));
+
+    setErrorLines(lines);
+    console.log(lines); // Log 'lines' directly to verify extraction
+  }
+
   const handleRunTests = async () => {
     if (!code.trim()) return
     
@@ -251,6 +265,7 @@ function ProblemDetailPage() {
     }
     
     setRunning(true)
+    setErrorLines([])
     try {
       const result = await runTests(problemId, code, language, customTestCases)
       if (result.success && result.results) {
@@ -260,6 +275,8 @@ function ProblemDetailPage() {
         // Display compilation/runtime error
         const errorMsg = result.error || 'Unknown error occurred'
         const simplified_errorMsg = await simplifyError(errorMsg)
+        ExtractErrorLines(simplified_errorMsg)
+        
         setTestResults([{ 
           test_id:'NA',
           passed: false, 
@@ -301,6 +318,7 @@ function ProblemDetailPage() {
       }
     }
     setRunning(true)
+    setErrorLines([])
     try {
       const result = await submitCode(problemId, code, language, customTestCases)
       if (result.success && result.results) {
@@ -320,6 +338,7 @@ function ProblemDetailPage() {
         // Display compilation/runtime error
         const errorMsg = result.error || 'Unknown error occurred'
         const simplified_errorMsg = await simplifyError(errorMsg)
+        ExtractErrorLines(simplified_errorMsg)
         setTestResults([{ 
           test_id:'NA',
           passed: false, 
@@ -403,6 +422,7 @@ function ProblemDetailPage() {
   }
   const handleResetCode = async () => {
     try {
+      setErrorLines([])
       const cacheKey = `template_${problemId}_${language}`
       const templateCode = await fetchWithCache(
         cacheKey,
@@ -718,6 +738,8 @@ function ProblemDetailPage() {
               }}
               breakpoints={breakpoints}
               onBreakpointsChange={handleBreakpointsChange}
+              errorLines={errorLines}
+              setErrorLines={setErrorLines}
               currentExecutionLine={currentExecutionLine}
               showRunButton={true}
               onResetCode={handleResetCode}

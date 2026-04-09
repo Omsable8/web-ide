@@ -341,7 +341,7 @@ def build_execution_code(user_code, language, template, input_params):
                 input_values.append(str(value))
         
         param_names = [p['name'] for p in input_params]
-        call = f"result = solve({', '.join(input_values)})\nlogger.log(result)"
+        call = f"result = solve({', '.join(input_values)})\nprint(result)"
         
         return f"{user_code}\n\n{call}"
     

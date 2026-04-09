@@ -240,6 +240,12 @@
   .execution-line-highlight {
     background-color: rgba(234, 179, 8, 0.2) !important;
   }
+  /* Use !important to override Monaco default line backgrounds */
+  .error-line-highlight {
+      background: rgba(255, 0, 0, 0.2) !important;
+      width: 100% !important;
+  }
+
 
   /* Make glyph margin clickable cursor */
   .monaco-editor .margin {

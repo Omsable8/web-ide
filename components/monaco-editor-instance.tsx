@@ -24,6 +24,8 @@ interface MonacoEditorProps {
   breakpoints?: number[]
   onBreakpointsChange?: (breakpoints: number[]) => void
   currentExecutionLine?: number | null
+  errorLines?: number[]
+  setErrorLines?: (lines: number[]) => void
   onResetCode?: () => Promise<void>
 }
 
@@ -36,6 +38,8 @@ export function MonacoEditorInstance({
   showRunButton = true,
   readOnly = false,
   breakpoints = [],
+  errorLines = [],
+  setErrorLines,
   onBreakpointsChange,
   currentExecutionLine = null,
   onResetCode,
@@ -203,6 +207,17 @@ export function MonacoEditorInstance({
         },
       })
     })
+    
+    errorLines.forEach((lineNum) => {
+        decorations.push({
+            range: new monacoRef.current.Range(lineNum, 1, lineNum, 1),
+            options: {
+                isWholeLine: true,
+                className: 'error-line-highlight',
+                stickiness: monacoRef.current.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+            },
+        })
+    })
 
     if (currentExecutionLine) {
       decorations.push({
@@ -217,7 +232,8 @@ export function MonacoEditorInstance({
     }
 
     decorationIdsRef.current = editorRef.current.deltaDecorations(decorationIdsRef.current, decorations)
-  }, [breakpoints, currentExecutionLine])
+  }, [breakpoints, currentExecutionLine, errorLines])
+
 
   // --- Sync Props ---
   useEffect(() => {
@@ -232,6 +248,7 @@ export function MonacoEditorInstance({
 
   const handleLanguageChange = (newLang: "cpp" | "python" | "java") => {
     setLanguage(newLang)
+    if (setErrorLines) setErrorLines([])
     if (onLanguageChange) onLanguageChange(newLang)
   }
 

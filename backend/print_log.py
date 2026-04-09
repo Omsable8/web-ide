@@ -9,6 +9,7 @@ from typing import Optional
 class Logger():
     def __init__(self,disable=False, file:Optional[str] = None):
         self.disable = disable
+        self.filename = None
         if file:
             self.filename = file
 

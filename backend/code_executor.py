@@ -136,7 +136,7 @@ class CodeExecutor:
             
             # CRITICAL: Allow code_runner to read this file
             os.chmod(temp_file, 0o644)
-            logger.log("DEBUG", f"code:\n{code}\n", file=sys.stderr)
+            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
             try:
                 # Wrap command with sudo
                 # Note: Using 'python3' instead of sys.executable to ensure we use system python
@@ -179,7 +179,7 @@ class CodeExecutor:
             
             # Output file without extension
             temp_out = temp_cpp.replace('.cpp', '')
-            logger.log("DEBUG", f"code:\n{code}\n", file=sys.stderr)
+            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
             
             try:
                 # Compile C++ code
@@ -242,7 +242,7 @@ class CodeExecutor:
             # class_name = CodeExecutor._extract_java_class_name(code)
             class_name = "Main"
 
-            logger.log("DEBUG", f"code:\n{code}\n", file=sys.stderr)
+            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
             
             # if not class_name:
             #     class_name = 'Solution'

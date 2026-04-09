@@ -126,8 +126,8 @@ class AIChatbot:
         Instructions:
         1) extract line numbers from Python, Java, or C++ stack traces and explain the core issue simply in the exact format :
             'line [number] : [one-sentence beginner-friendly explanation]'.
-        2) outputting absolutely nothing else.
-        3) Give a markdown version of the explanation, with line numbers in bold and explanations in italics.
+        2) Only Give a markdown version of the explanation, with line numbers in bold and explanations in italics.
+        3) outputting absolutely nothing else.
         '''
         
         try:
