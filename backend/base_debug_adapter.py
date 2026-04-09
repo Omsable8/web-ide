@@ -284,6 +284,8 @@ class BaseDebugAdapter(ABC):
                 all_variables.extend(self._resolve_python_variables(variables))
             elif lang in ['cpp', 'c++']:
                 all_variables.extend(self._resolve_cpp_variables(variables))
+            elif lang == 'java':
+                all_variables.extend(self._resolve_java_variables(variables))
             else:
                 all_variables.extend(variables) # Default fallback
                 
@@ -377,8 +379,29 @@ class BaseDebugAdapter(ABC):
             return f"[{', '.join(vals)}]"
         hashmaps = ", ".join([f'{c.get("name")}: {c.get("value")}' for c in children] )
         return '{'+hashmaps+'}'
-        
     
+    def _resolve_java_variables(self, variables: List[Dict]) -> List[Dict]:
+        processed = []
+        for var in variables:
+            name = var.get('name')
+            val = str(var.get('value', ''))
+            
+            # Poll if bridge is still resolving 'instance of' or metadata-heavy dumps
+            if "instance of" in val or "serialVersionUID" in val:
+                for _ in range(6):
+                    gevent.sleep(0.1)
+                    resp = self._send_request("variables", {"variablesReference": 1})
+                    if resp:
+                        updated = next((v for v in resp.body.get('variables', []) if v['name'] == name), None)
+                        # Check if bridge successfully swapped internal metadata for the clean string
+                        if updated and "serialVersionUID" not in str(updated.get('value', '')):
+                            var['value'] = updated['value']
+                            break
+            
+            var['variablesReference'] = 0
+            processed.append(var)
+        return processed
+
     def get_current_state(self) -> Optional[Dict[str, Any]]:
         """Get complete current debugger state"""
         self.log("Getting current state...")

@@ -88,6 +88,7 @@ class JdbBridge:
 
     def _write_jdb(self, cmd):
         """Send text command to JDB"""
+        print(f"[BRIDGE -> JDB] Executing: {cmd}") # NEW DEBUG LOG
         if self.jdb_process:
             self.jdb_process.stdin.write(cmd + "\n")
             self.jdb_process.stdin.flush()
@@ -139,34 +140,42 @@ class JdbBridge:
                     continue
 
                 # --- 1. Standard Variable Parsing ---
-                if " = " in line and not line.startswith("[") and "Method arguments:" not in line and "Local variables:" not in line:
+                if " = " in line and not line.startswith("[") and not line.endswith(';') and "Method arguments:" not in line and "Local variables:" not in line:
                     parts = line.split(" = ", 1)
                     if len(parts) == 2:
                         var_name = parts[0].strip()
                         var_val = parts[1].strip()
+                        print(f"[BRIDGE DEBUG] Found Var: {var_name} Val: {var_val}") # NEW DEBUG LOG
                         
                         # INTERCEPT BACKGROUND ARRAY EVALUATIONS
-                        if "java.util.Arrays." in var_name:
-                            match = re.search(r'ToString\(([a-zA-Z0-9_$]+)\)', var_name)
-                            if match:
-                                actual_name = match.group(1).strip()
-                                # Strip the extra double quotes JDB puts around evaluated strings
-                                if var_val.startswith('"') and var_val.endswith('"'):
-                                    var_val = var_val[1:-1]
-                                self.variables_cache[actual_name] = var_val
-                                self.suppress_logs = True # Hide this transaction from frontend
+                        # Inside _read_jdb_output, when intercepting Arrays.toString
+                        if "java.util.Arrays." in var_name or "String.valueOf" in var_name or '"" +' in var_name:
+                            match = re.search(r'(?:ToString|deepToString|valueOf|\+)\s*\(([a-zA-Z0-9_$]+)\)', var_name, re.IGNORECASE)
+                            clean_name = match.group(1).strip() if match else var_name.replace('"" +', '').strip()
+    
+                            if var_val.startswith('"') and var_val.endswith('"'):
+                                var_val = var_val[1:-1]
+
+                            # Update cache with CLEAN name, overwriting the "instance of" entry
+                            self.variables_cache[clean_name] = var_val
+                            self.suppress_logs = True
+                            self._send_dap_event("variables_update", {"variables": {clean_name: var_val}})
                             continue
 
                         # Store the initial memory address or primitive value
                         
                         # TRIGGER BACKGROUND EVALUATION BASED ON DATATYPE
                         if "instance of" in var_val:
+                            print(f"[BRIDGE DEBUG] Triggering eval for {var_name} (Type detected)") # NEW DEBUG LOG
                             if "][" in var_val: 
                                 # 2D Array or higher (e.g., int[][3])
                                 self._write_jdb(f'print java.util.Arrays.deepToString({var_name})')
                             elif "[" in var_val: 
                                 # 1D Array (e.g., int[5] or String[3])
                                 self._write_jdb(f'print java.util.Arrays.toString({var_name})')
+                            elif "HashMap" in var_val or "Map" in var_val or "List" in var_val:
+                                # Forces the use of .toString() instead of 'dump'
+                                self._write_jdb(f'print "" + {var_name}')
                             elif "java.lang." in var_val: 
                                 # Wrapper classes (Integer, Double, String)
                                 self._write_jdb(f'print {var_name}')
@@ -200,7 +209,7 @@ class JdbBridge:
                 
                 # E. Source code echo filter (Lines starting with number)
                 # E.g. "4            String s = "";"
-                if re.match(r'^\d+\s+', line): is_noise = True
+                if re.match(r'^\d+\s+.*', line): is_noise = True
 
                 # --- 3. Send to Frontend (Only if NOT noise) ---
                 if line and not is_noise:

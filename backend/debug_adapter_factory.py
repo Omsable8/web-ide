@@ -103,7 +103,7 @@ class DebugAdapterFactory:
         """
         if work_dir is None:
             # CHANGE: Create a 'temp_sessions' folder in your current project root
-            base_temp_dir = os.path.join(os.getcwd(), 'temp_sessions')
+            base_temp_dir = os.path.join('/tmp', 'temp_sessions')
             os.makedirs(base_temp_dir, exist_ok=True)
             
             # Create a unique subfolder for this session
