@@ -4,7 +4,8 @@ import os
 import sys
 from typing import Optional
 from base_debug_adapter import BaseDebugAdapter
-
+from print_log import Logger
+logger = Logger()
 class JavaDebugAdapter(BaseDebugAdapter):
     def __init__(self, class_name: str, classpath: str, port: int,
                  java_path: str = 'java', on_event=None):
@@ -50,7 +51,7 @@ class JavaDebugAdapter(BaseDebugAdapter):
             capture_output=True, text=True, timeout=10
         )
         if result.returncode != 0:
-            # print(f"[ERROR] Compilation: {result.stderr}")
+            logger.log("ERROR",f"Compilation: {result.stderr}")
             raise RuntimeError(f"Compilation Error:\n{result.stderr}")
             # return False
         return True
@@ -78,7 +79,7 @@ class JavaDebugAdapterHelper:
         entry_class = class_name # Default: Run user's class directly
 
         if os.path.exists(input_file):
-            print(f"[JavaHelper] Found input.txt, generating InputRedirector...")
+            logger.log("JavaHelper", f"Found input.txt, generating InputRedirector...")
             redirector_code = f"""
 import java.io.*;
 public class InputRedirector {{
@@ -103,7 +104,7 @@ public class InputRedirector {{
                 if adapter.compile_java_file(redirector_path):
                     entry_class = "InputRedirector" # Success! Run this instead.
             except Exception as e:
-                print(f"[JavaHelper] Failed to create redirector: {e}")
+                logger.log("JavaHelper", f"Failed to create redirector: {e}")
 
         # 3. Store the Entry Class in the adapter for the bridge to use
         adapter.entry_class = entry_class

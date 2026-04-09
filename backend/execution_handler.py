@@ -7,6 +7,8 @@ import requests
 from config import Config
 from code_executor import CodeExecutor
 from data_logger import DataLogger
+from print_log import Logger
+logger = Logger()
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -35,7 +37,7 @@ def run_code():
         return jsonify(result)
         
     except Exception as e:
-        print(f"[ERROR] Code execution failed: {str(e)}")
+        logger.log("Error", f"Code execution failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -85,10 +87,10 @@ def run_tests(problem_id):
             })
         
         total_tests = len(all_test_inputs)
-        # print(f"all tests inputs: {all_test_inputs}")
+        # logger.log(f"all tests inputs: {all_test_inputs}")
         # Build stdin string
         stdin_string = build_stdin(all_test_inputs, language)
-        # print(f"Built stdin string for {total_tests} tests: {stdin_string}")
+        # logger.log(f"Built stdin string for {total_tests} tests: {stdin_string}")
         # Execute user code
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code , language, stdin_string)
         if not user_result.get('success'):
@@ -125,7 +127,7 @@ def run_tests(problem_id):
         })
         
     except Exception as e:
-        print(f"[ERROR] Run tests failed: {str(e)}")
+        logger.log("Error", f"Run tests failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -169,7 +171,7 @@ def submit_code(problem_id):
         
         # Build stdin string - single execution for all tests
         stdin_string = build_stdin(all_test_inputs, language)
-        # print(f"Built stdin string for {total_tests} tests:\n{stdin_string}")
+        # logger.log(f"Built stdin string for {total_tests} tests:\n{stdin_string}")
         # Execute user code once with all tests
         user_result = CodeExecutor.execute(user_code + '\n' + driver_code, language, stdin_string)
         if not user_result.get('success'):
@@ -209,7 +211,7 @@ def submit_code(problem_id):
         })
         
     except Exception as e:
-        print(f"[ERROR] Submit code failed: {str(e)}")
+        logger.log("Error", f"Submit code failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
     
@@ -283,7 +285,7 @@ def build_stdin(test_inputs, language):
     
     for test_input in test_inputs:
         # Each test_input is a list of dict like: [{'name': 'nums', 'type': 'array', 'value': [2, 7, 11, 15]}, {'name': 'target', 'type': 'integer', 'value': 9}]
-        # print(f"Processing test input: {test_input}")
+        # logger.log(f"Processing test input: {test_input}")
         
         for param in test_input:
             value = param.get('value', '')
@@ -339,7 +341,7 @@ def build_execution_code(user_code, language, template, input_params):
                 input_values.append(str(value))
         
         param_names = [p['name'] for p in input_params]
-        call = f"result = solve({', '.join(input_values)})\nprint(result)"
+        call = f"result = solve({', '.join(input_values)})\nlogger.log(result)"
         
         return f"{user_code}\n\n{call}"
     
@@ -356,8 +358,8 @@ def build_execution_code(user_code, language, template, input_params):
 
 
 if __name__ == '__main__':
-    print(f"[INFO] Starting CodeIDE Execution Server")
-    print(f"[INFO] Execution Model: Local (Direct subprocess execution)")
-    print(f"[INFO] Server running on {Config.HOST}:{Config.EXEPORT}")
+    logger.log("INFO", f"Starting CodeIDE Execution Server")
+    logger.log("INFO", f"Execution Model: Local (Direct subprocess execution)")
+    logger.log("INFO", f"Server running on {Config.HOST}:{Config.EXEPORT}")
     
     app.run(host=Config.HOST, port=Config.EXEPORT, debug=Config.DEBUG, use_reloader=False)

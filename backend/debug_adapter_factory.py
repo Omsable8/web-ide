@@ -11,7 +11,8 @@ from base_debug_adapter import BaseDebugAdapter
 from python_debug_adapter import PythonDebugAdapter, PythonDebugAdapterWithInput
 from java_debug_adapter import JavaDebugAdapter, JavaDebugAdapterHelper
 from cpp_debug_adapter import CppDebugAdapter, CppDebugAdapterHelper
-
+from print_log import Logger
+logger = Logger(False)
 
 class Language(Enum):
     PYTHON = "python"
@@ -78,7 +79,7 @@ class DebugAdapterFactory:
             )
         
         else:
-            print(f"[ERROR] Unsupported file extension: {ext}")
+            logger.log("ERROR", f"Unsupported file extension: {ext}")
             return None
     
     @staticmethod
@@ -128,7 +129,7 @@ class DebugAdapterFactory:
             )
         
         else:
-            print(f"[ERROR] Unsupported language: {language}")
+            logger.log("ERROR", f"Unsupported language: {language}")
             return None
     
     
@@ -241,7 +242,7 @@ class DebugSessionManager:
         # Find available port
         port = self._find_available_port()
         if port is None:
-            print("[ERROR] No available ports")
+            logger.log("ERROR", "No available ports")
             return None
         
         # Create adapter

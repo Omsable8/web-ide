@@ -6,6 +6,8 @@ import subprocess
 import threading
 import time
 
+from print_log import Logger
+logger = Logger(True)
 class JdbBridge:
     def __init__(self, port, main_class, classpath, entry_class=None):
         self.current_line = 1
@@ -30,7 +32,7 @@ class JdbBridge:
         # 1. Start JDB (The actual debugger)
         # We tell it to run the class with the given classpath
         cmd = ['jdb', '-classpath', self.classpath, self.entry_class]
-        print(f"[BRIDGE] Starting JDB: {' '.join(cmd)}")
+        logger.log("BRIDGE",f"Starting JDB: {' '.join(cmd)}")
         
         self.jdb_process = subprocess.Popen(
             cmd,
@@ -48,7 +50,7 @@ class JdbBridge:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(('127.0.0.1', self.port))
         server.listen(1)
-        print(f"[BRIDGE] Listening on port {self.port}...")
+        logger.log("BRIDGE",f"Listening on port {self.port}...")
         
         # 3. Start reading JDB output in background
         threading.Thread(target=self._read_jdb_output, daemon=True).start()
@@ -88,7 +90,7 @@ class JdbBridge:
 
     def _write_jdb(self, cmd):
         """Send text command to JDB"""
-        print(f"[BRIDGE -> JDB] Executing: {cmd}") # NEW DEBUG LOG
+        logger.log("BRIDGE -> JDB", f"Executing: {cmd}") # NEW DEBUG LOG
         if self.jdb_process:
             self.jdb_process.stdin.write(cmd + "\n")
             self.jdb_process.stdin.flush()
@@ -145,7 +147,7 @@ class JdbBridge:
                     if len(parts) == 2:
                         var_name = parts[0].strip()
                         var_val = parts[1].strip()
-                        print(f"[BRIDGE DEBUG] Found Var: {var_name} Val: {var_val}") # NEW DEBUG LOG
+                        logger.log("BRIDGE DEBUG", f"Found Var: {var_name} Val: {var_val}") # NEW DEBUG LOG
                         
                         # INTERCEPT BACKGROUND ARRAY EVALUATIONS
                         # Inside _read_jdb_output, when intercepting Arrays.toString
@@ -166,7 +168,7 @@ class JdbBridge:
                         
                         # TRIGGER BACKGROUND EVALUATION BASED ON DATATYPE
                         if "instance of" in var_val:
-                            print(f"[BRIDGE DEBUG] Triggering eval for {var_name} (Type detected)") # NEW DEBUG LOG
+                            logger.log("BRIDGE DEBUG", f"Triggering eval for {var_name} (Type detected)") # NEW DEBUG LOG
                             if "][" in var_val: 
                                 # 2D Array or higher (e.g., int[][3])
                                 self._write_jdb(f'print java.util.Arrays.deepToString({var_name})')
@@ -234,7 +236,7 @@ class JdbBridge:
                     self._send_dap_event("stopped", {"reason": "exception", "threadId": 1})
                     
             except Exception as e:
-                print(f"Bridge Read Error: {e}")
+                logger.log("Bridge Read Error:", f"{e}")
                 break
     def _handle_client(self):
         """Read JSON requests from Adapter"""

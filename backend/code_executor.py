@@ -6,7 +6,8 @@ from pathlib import Path
 import traceback
 import judge0
 import json
-
+from print_log import Logger
+logger = Logger()
 RAPID_API_KEY = os.environ.get("RAPID_API_KEY")
 class CodeExecutor:
     """Execute code in different programming languages"""
@@ -135,7 +136,7 @@ class CodeExecutor:
             
             # CRITICAL: Allow code_runner to read this file
             os.chmod(temp_file, 0o644)
-            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
+            logger.log("DEBUG", f"code:\n{code}\n", file=sys.stderr)
             try:
                 # Wrap command with sudo
                 # Note: Using 'python3' instead of sys.executable to ensure we use system python
@@ -178,7 +179,7 @@ class CodeExecutor:
             
             # Output file without extension
             temp_out = temp_cpp.replace('.cpp', '')
-            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
+            logger.log("DEBUG", f"code:\n{code}\n", file=sys.stderr)
             
             try:
                 # Compile C++ code
@@ -241,7 +242,7 @@ class CodeExecutor:
             # class_name = CodeExecutor._extract_java_class_name(code)
             class_name = "Main"
 
-            # print(f"[DEBUG] code:\n{code}\n", file=sys.stderr)
+            logger.log("DEBUG", f"code:\n{code}\n", file=sys.stderr)
             
             # if not class_name:
             #     class_name = 'Solution'

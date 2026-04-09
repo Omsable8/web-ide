@@ -6,7 +6,8 @@ import os
 from ai_chatbot import AIChatbot
 from config import Config
 from data_logger import DataLogger
-
+from print_log import Logger
+logger = Logger(disable=False)
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -41,7 +42,7 @@ def ai_chat():
         })
         
     except Exception as e:
-        print(f"[ERROR] AI chat failed: {str(e)}")
+        logger.log("ERROR", f"AI chat failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -60,7 +61,7 @@ def set_model():
         return jsonify({"success": True, "message": f"Model set to {model}"})
         
     except Exception as e:
-        print(f"[ERROR] Set model failed: {str(e)}")
+        logger.log("ERROR", f"Set model failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -121,12 +122,12 @@ NOTE: DO NOT ADD ANY TEXT IN YOUR RESPONSE ONLY GIVE A VALID JSON. GIVE EMPTY JS
         })
         
     except Exception as e:
-        print(f"[ERROR] Complexity analysis failed: {str(e)}")
+        logger.log("ERROR", f"Complexity analysis failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
-    print(f"[INFO] Starting CodeIDE AI Server")
-    print(f"[INFO] AI Model: {Config.AI_MODEL}")
-    print(f"[INFO] Server running on {Config.HOST}:{Config.AIPORT}")
+    logger.log("INFO", f"Starting CodeIDE AI Server")
+    logger.log("INFO", f"AI Model: {Config.AI_MODEL}")
+    logger.log("INFO", f"Server running on {Config.HOST}:{Config.AIPORT}")
     
     app.run(host=Config.HOST, port=Config.AIPORT, debug=Config.DEBUG)

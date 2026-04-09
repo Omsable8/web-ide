@@ -4,6 +4,8 @@ import json
 import requests
 import re
 import markdown
+from print_log import Logger
+logger = Logger(False)
 class Message:
     """Represents a chat message"""
     def __init__(self, role: str, content: str):
@@ -45,7 +47,7 @@ class AIChatbot:
     def set_model(self, model: str):
         """Set the AI model to use"""
         self.model = model
-        print(f"[AI] Model changed to: {model}")
+        logger.log("AI",f"Model changed to: {model}")
         
     def add_message(self, role: str, content: str):
         """Add a message to conversation history"""
@@ -98,8 +100,7 @@ class AIChatbot:
             self.add_message("assistant", response_text)
             return response_text
         except Exception as e:
-            error_msg = f"[AI ERROR] {str(e)}"
-            print(error_msg)
+            logger.log("AI ERROR",f"{str(e)}")
             return "Sorry, I couldn’t connect to the AI service right now."
     
     def _openrouter_request(self, messages: List[Dict]) -> str:
@@ -149,7 +150,7 @@ class AIChatbot:
             
             return data["choices"][0]["message"]["content"]
         except Exception as e:
-            print(f"OpenAI API failed: {e}")
+            logger.log("AI",f"OpenAI API failed: {e}")
             return raw_stack_trace # Fallback to raw error if the API call fails
     
     def get_conversation_history(self) -> List[Dict]:

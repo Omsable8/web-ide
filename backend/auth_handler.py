@@ -6,7 +6,8 @@ import bcrypt
 import secrets
 from database import execute_read, execute_write
 from datetime import datetime
-
+from print_log import Logger
+logger = Logger()
 class AuthHandler:
     def __init__(self):
         pass # No client needed anymore
@@ -72,7 +73,7 @@ class AuthHandler:
                 'user': {'uid': str(user['uid']), 'name': user['name'], 'email': user['email'], 'token': token}
             }
         except Exception as e:
-            print(f"[AUTH ERROR] {e}")
+            logger.log("AUTH ERROR",f"{e}")
             return {'success': False, 'error': 'Internal server error'}
 
     def login(self, email, password):

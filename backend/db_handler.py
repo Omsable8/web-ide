@@ -9,6 +9,8 @@ import os
 from auth_handler import AuthHandler
 from data_logger import DataLogger
 from database import execute_read, execute_write
+from print_log import Logger
+logger = Logger()
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -23,7 +25,7 @@ LRU_CACHE_SIZE = 40  # Adjust based on expected load and memory constraints
 @lru_cache(maxsize=LRU_CACHE_SIZE) # Increased size to handle (10 problems * 3 languages)
 def _fetch_template_from_db(problem_id, language):
     """Helper to cache template based on BOTH ID and Language"""
-    print(f"[CACHE MISS] Fetching template for {problem_id} - {language}")
+    logger.log("CACHE MISS", f"Fetching template for {problem_id} - {language}")
     rows = execute_read(
         "SELECT id, problem_id, language, template_code, function_name, input_params, return_type, driver_code, solution_code FROM code_templates WHERE problem_id = :pid AND language = :lang",
         {"pid": problem_id, "lang": language}
@@ -33,7 +35,7 @@ def _fetch_template_from_db(problem_id, language):
 @lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_hints_from_db(problem_id):
     """Helper to cache hints based on ID"""
-    print(f"[CACHE MISS] Fetching hints for {problem_id}")
+    logger.log("CACHE MISS", f"Fetching hints for {problem_id}")
     
     query = "SELECT id, problem_id, hints_data FROM hints WHERE problem_id = :pid"
     rows = execute_read(query, {"pid": problem_id})
@@ -43,7 +45,7 @@ def _fetch_hints_from_db(problem_id):
 
 @lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_testcases_from_db(problem_id):
-    print(f"[CACHE MISS] Fetching testcases {problem_id}")
+    logger.log("CACHE MISS", f"Fetching testcases {problem_id}")
     
     query = "SELECT id, problem_id, is_hidden, input_params FROM test_cases WHERE problem_id = :pid"
     rows = execute_read(query, {"pid": problem_id})
@@ -53,7 +55,7 @@ def _fetch_testcases_from_db(problem_id):
 
 @lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
-    print(f"[CACHE MISS] Fetching problems with difficulty={difficulty}, category={category}")
+    logger.log("CACHE MISS", f"Fetching problems with difficulty={difficulty}, category={category}")
     
     # Start with a base query
     query = "SELECT id, title, description, difficulty, category, topic, examples, constraints, time_complexity, space_complexity, mode FROM problems WHERE mode=:mode"
@@ -73,7 +75,7 @@ def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
 
 @lru_cache(maxsize=LRU_CACHE_SIZE)
 def _fetch_problem_from_db(problem_id):
-    print(f"[CACHE MISS] Fetching problem {problem_id}")
+    logger.log("CACHE MISS", f"Fetching problem {problem_id}")
     rows = execute_read("SELECT * FROM problems WHERE id = :pid", {"pid": problem_id})
     # Supabase returns {data: ...}, so we mock that structure to keep API consistent
     return {"data": rows[0] if rows else None}
@@ -224,7 +226,7 @@ def store_features_usage():
         datalogger.log_feature(**data)
         return jsonify({'success': True}), 200
     except Exception as e:
-        print(f"[ERROR] Store feature usage failed: {str(e)}")
+        logger.log("ERROR", f"Store feature usage failed: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 # ============================================================================
 # DSA Problems Endpoints
@@ -247,7 +249,7 @@ def get_problems():
         return jsonify({"success": True, "problems": problems['data']})
         
     except Exception as e:
-        print(f"[ERROR] Get problems failed: {str(e)}")
+        logger.log("ERROR", f"Get problems failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/problems/<problem_id>', methods=['GET'])
@@ -263,7 +265,7 @@ def get_problem(problem_id):
         return jsonify({"success": True, "problem": problem["data"]})
         
     except Exception as e:
-        print(f"[ERROR] Get problem failed: {str(e)}")
+        logger.log("ERROR", f"Get problem failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/problems/<problem_id>/hints', methods=['GET'])
@@ -285,7 +287,7 @@ def get_hints(problem_id):
         return jsonify({"success": True, "hints_data": hints_data})
         
     except Exception as e:
-        print(f"[ERROR] Get hints failed: {str(e)}")
+        logger.log("ERROR", f"Get hints failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/problems/<problem_id>/test-cases', methods=['GET'])
@@ -324,7 +326,7 @@ def get_test_cases(problem_id):
         })
         
     except Exception as e:
-        print(f"[ERROR] Get test cases failed: {str(e)}")
+        logger.log("ERROR", f"Get test cases failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -352,7 +354,7 @@ def get_template(problem_id):
         })
         
     except Exception as e:
-        print(f"[ERROR] Get template failed: {str(e)}")
+        logger.log("ERROR", f"Get template failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/', methods=['GET'])
@@ -387,7 +389,7 @@ def internal_error(e):
 # ============================================================================
 
 if __name__ == '__main__':
-    print(f"[INFO] Starting CodeIDE DB Server")
-    print(f"[INFO] Server running on {Config.HOST}:{Config.DBPORT}")
+    logger.log("INFO",f"Starting CodeIDE DB Server")
+    logger.log("INFO",f"Server running on {Config.HOST}:{Config.DBPORT}")
     
     app.run(host=Config.HOST, port=Config.DBPORT, debug=Config.DEBUG, use_reloader=False)

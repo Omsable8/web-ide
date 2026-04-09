@@ -6,7 +6,8 @@ import subprocess
 import sys
 from typing import Optional
 from base_debug_adapter import BaseDebugAdapter
-
+from print_log import Logger
+logger = Logger()
 
 class PythonDebugAdapter(BaseDebugAdapter):
     """
@@ -56,7 +57,7 @@ class PythonDebugAdapter(BaseDebugAdapter):
                 self.process.stdin.write(input_data.encode())
                 self.process.stdin.flush()
             except Exception as e:
-                print(f"[ERROR] Failed to send input: {e}")
+                logger.log("ERROR", f"Failed to send input: {e}")
 
 
 class PythonDebugAdapterWithInput(PythonDebugAdapter):
@@ -93,7 +94,7 @@ class PythonDebugAdapterWithInput(PythonDebugAdapter):
             try:
                 stdin_file = open(self.input_file_path, 'r')
             except Exception as e:
-                print(f"[WARNING] Could not open input file: {e}")
+                logger.log("WARNING",f"Could not open input file: {e}")
         
         return subprocess.Popen(
             cmd,

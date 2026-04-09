@@ -14,6 +14,8 @@ import requests
 import json
 import re
 from execution_handler import build_stdin
+from print_log import Logger
+logger = Logger()
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}}, supports_credentials=True)
@@ -40,7 +42,7 @@ def get_language_enum(language_str: str) -> Language:
 def handle_connect():
     """Handle client connection"""
     sid = request.sid
-    print(f"\n[SERVER] ✓ Client connected: {sid}")
+    logger.log("SERVER", f"✓ Client connected: {sid}")
     join_room(sid)
     socketio.emit('connected', {'status': 'ready'}, room=sid)
 
@@ -49,7 +51,7 @@ def handle_connect():
 def handle_disconnect():
     """Client closed tab or lost internet"""
     sid = request.sid
-    print(f"\n[SERVER] ✗ Client disconnected: {sid}")
+    logger.log("SERVER", f"✗ Client disconnected: {sid}")
     _perform_cleanup(sid, reason="client_disconnect")
 
 
@@ -62,7 +64,7 @@ def handle_start_debug(data):
     3. Send configurationDone to start execution
     """
     sid = request.sid
-    print(f"\n[SERVER] === START DEBUG REQUEST from {sid} ===")
+    logger.log("SERVER", f"=== START DEBUG REQUEST from {sid} ===")
     
     try:
         code = data.get('code', '')
@@ -72,7 +74,7 @@ def handle_start_debug(data):
         user_code_line_count = len(code.split('\n'))
         
         if not code:
-            print("[SERVER] ERROR: No code provided")
+            logger.log("SERVER", "ERROR: No code provided")
             socketio.emit('debug_error', {'error': 'No code provided'}, room=sid)
             return
         
@@ -94,7 +96,7 @@ def handle_start_debug(data):
                 input_data = build_stdin([test_params[0]],language=language_str) if test_cases else ""
                 
             else:
-                print(f"[SERVER] Failed to fetch test-case for {problem_id}: {resp.status_code}")
+                logger.log("SERVER", f" Failed to fetch test-case for {problem_id}: {resp.status_code}")
             
             resp = requests.get(f"http://localhost:5000/api/problems/{problem_id}/template?language={language_str}")
             if resp.status_code == 200:
@@ -104,28 +106,28 @@ def handle_start_debug(data):
                 driver_code = template.get('driver_code', '')
                 code = code + '\n\n' + driver_code
             else:
-                print(f"[SERVER] Failed to fetch template for {problem_id}: {resp.status_code}")
+                logger.log("SERVER", f" Failed to fetch template for {problem_id}: {resp.status_code}")
         
         except Exception as e:
-            print(f"[SERVER] Error fetching problem data: {e}")
+            logger.log("SERVER", f" Error fetching problem data: {e}")
         
         driver_start_line = user_code_line_count + 2
         # Convert language
         language = get_language_enum(language_str)
         
-        print(f"[SERVER] Language: {language_str}")
-        print(f"[SERVER] Code length: {len(code)} chars")
-        print(f"[SERVER] Breakpoints: {breakpoints}")
-        print(f"[SERVER] Input data: {len(input_data)} chars")
+        logger.log("SERVER", f" Language: {language_str}")
+        logger.log("SERVER", f" Code length: {len(code)} chars")
+        logger.log("SERVER", f" Breakpoints: {breakpoints}")
+        logger.log("SERVER", f" Input data: {len(input_data)} chars")
         # Event handler for debug events
         def on_debug_event(event_type: str, event_data: dict):
             """Forward debug events to frontend"""
             try:
-                print(f"[SERVER] Event: {event_type}")
+                logger.log("SERVER", f" Event: {event_type}")
                 
                 if event_type == 'output':
                     # Don't send telemetry
-                    print(f"[SERVER] Output: {event_data.get('output', '')}")
+                    logger.log("SERVER", f" Output: {event_data.get('output', '')}")
                     if event_data.get('category') == 'telemetry':
                         return
                     
@@ -140,15 +142,15 @@ def handle_start_debug(data):
                     line = state.get('line')
                     # --- THE TRAP ---
                     if line and line >= driver_start_line:
-                        print(f"[SERVER] User code ended at line {line}. Terminating session.")
+                        logger.log("SERVER", f" User code ended at line {line}. Terminating session.")
                         socketio.emit('debug_terminated', {'reason': 'program_finished'}, room=sid)
                         # Optional: Force cleanup immediately
                         _perform_cleanup(sid, reason="program_finished")
                         return
                     # ----------------
-                    print(f"[SERVER] Stopped at line {line}")
-                    print(f"[SERVER] Variables: {len(state.get('variables', []))}")
-                    print(f"[SERVER] Stack frames: {len(state.get('stack', []))}")
+                    logger.log("SERVER", f" Stopped at line {line}")
+                    logger.log("SERVER", f" Variables: {len(state.get('variables', []))}")
+                    logger.log("SERVER", f" Stack frames: {len(state.get('stack', []))}")
                     
                     socketio.emit('debug_stopped', {
                         'reason': reason,
@@ -163,17 +165,17 @@ def handle_start_debug(data):
                     socketio.emit('debug_continued', {}, room=sid)
                 
                 elif event_type == 'terminated':
-                    print(f"[SERVER] Program finished naturally")
+                    logger.log("SERVER", f" Program finished naturally")
                     _perform_cleanup(sid, reason="program_terminated")
                     
             except Exception as e:
-                print(f"[SERVER] ERROR in event handler: {e}")
+                logger.log("SERVER", f" ERROR in event handler: {e}")
                 
                 traceback.print_exc()
         
         # Create debug session
         
-        print(f"[SERVER] Creating debug session...")
+        logger.log("SERVER", f" Creating debug session...")
         adapter = session_manager.create_session(
             session_id=sid,
             code=code,
@@ -186,25 +188,25 @@ def handle_start_debug(data):
         # Start debugger in background
         def start_debugger_async():
             try:
-                print(f"[SERVER] Starting debugger async...")
+                logger.log("SERVER", f" Starting debugger async...")
                 
                 # Start debugger (initializes DAP but doesn't start execution)
                 if not adapter.start(timeout=10.0):
-                    print("[SERVER] ERROR: Debugger start failed")
+                    logger.log("SERVER", "ERROR: Debugger start failed")
                     socketio.emit('debug_error', {'error': 'Failed to start debugger'}, room=sid)
                     session_manager.stop_session(sid)
                     return
                 
-                print(f"[SERVER] Debugger started, launching with breakpoints...")
+                logger.log("SERVER", f" Debugger started, launching with breakpoints...")
                 
                 # Set breakpoints and send configurationDone (THIS starts execution)
                 if not adapter.launch_with_breakpoints(breakpoints):
-                    print("[SERVER] ERROR: Launch with breakpoints failed")
+                    logger.log("SERVER", "ERROR: Launch with breakpoints failed")
                     socketio.emit('debug_error', {'error': 'Failed to launch debugger'}, room=sid)
                     session_manager.stop_session(sid)
                     return
                 
-                print(f"[SERVER] Debugger launched successfully")
+                logger.log("SERVER", f" Debugger launched successfully")
                 socketio.emit('debug_started', {
                     'status': 'running',
                     'language': language_str,
@@ -212,7 +214,7 @@ def handle_start_debug(data):
                 }, room=sid)
                 
             except Exception as e:
-                print(f"[SERVER] ERROR in start_debugger_async: {e}")
+                logger.log("SERVER", f" ERROR in start_debugger_async: {e}")
                 
                 traceback.print_exc()
                 socketio.emit('debug_error', {'error': str(e)}, room=sid)
@@ -221,7 +223,7 @@ def handle_start_debug(data):
         gevent.spawn(start_debugger_async)
     
     except Exception as e:
-        print(f"[SERVER] ERROR in handle_start_debug: {e}")
+        logger.log("SERVER", f" ERROR in handle_start_debug: {e}")
         session_manager.stop_session(sid)
         traceback.print_exc()
         socketio.emit('debug_error', {'error': str(e)}, room=sid)
@@ -231,18 +233,18 @@ def handle_start_debug(data):
 def handle_continue():
     """Continue execution"""
     sid = request.sid
-    print(f"\n[SERVER] Continue request from {sid}")
+    logger.log("SERVER", f"Continue request from {sid}")
     
     adapter = session_manager.get_session(sid)
     if not adapter:
-        print("[SERVER] ERROR: No active session")
+        logger.log("SERVER", "ERROR: No active session")
         socketio.emit('debug_error', {'error': 'No active debug session'}, room=sid)
         return
     
     if adapter.continue_execution():
-        print("[SERVER] Continue successful")
+        logger.log("SERVER", "Continue successful")
     else:
-        print("[SERVER] ERROR: Continue failed")
+        logger.log("SERVER", "ERROR: Continue failed")
         socketio.emit('debug_error', {'error': 'Failed to continue'}, room=sid)
 
 
@@ -250,7 +252,7 @@ def handle_continue():
 def handle_step_over():
     """Step over"""
     sid = request.sid
-    print(f"\n[SERVER] Step over request from {sid}")
+    logger.log("SERVER", f"Step over request from {sid}")
     
     adapter = session_manager.get_session(sid)
     if not adapter:
@@ -258,16 +260,16 @@ def handle_step_over():
         return
     
     if adapter.step_over():
-        print("[SERVER] Step over successful")
+        logger.log("SERVER", "Step over successful")
     else:
-        print("[SERVER] ERROR: Step over failed")
+        logger.log("SERVER", "ERROR: Step over failed")
 
 
 @socketio.on('step_into')
 def handle_step_into():
     """Step into"""
     sid = request.sid
-    print(f"\n[SERVER] Step into request from {sid}")
+    logger.log("SERVER", f"Step into request from {sid}")
     
     adapter = session_manager.get_session(sid)
     if not adapter:
@@ -281,7 +283,7 @@ def handle_step_into():
 def handle_step_out():
     """Step out"""
     sid = request.sid
-    print(f"\n[SERVER] Step out request from {sid}")
+    logger.log("SERVER", f"Step out request from {sid}")
     
     adapter = session_manager.get_session(sid)
     if not adapter:
@@ -295,7 +297,7 @@ def handle_step_out():
 def handle_set_breakpoints(data):
     """Update breakpoints dynamically"""
     sid = request.sid
-    print(f"\n[SERVER] Set breakpoints request from {sid}")
+    logger.log("SERVER", f"Set breakpoints request from {sid}")
     
     adapter = session_manager.get_session(sid)
     if not adapter:
@@ -303,7 +305,7 @@ def handle_set_breakpoints(data):
         return
     
     breakpoints = data.get('breakpoints', [])
-    print(f"[SERVER] New breakpoints: {breakpoints}")
+    logger.log("SERVER", f" New breakpoints: {breakpoints}")
     
     if adapter.set_breakpoints(breakpoints):
         socketio.emit('breakpoints_updated', {'breakpoints': breakpoints}, room=sid)
@@ -326,7 +328,7 @@ def handle_evaluate(data):
         return
     
     expression = data.get('expression', '')
-    print(f"[SERVER] Evaluate: {expression}")
+    logger.log("SERVER", f" Evaluate: {expression}")
     
     if not expression:
         socketio.emit('debug_error', {'error': 'No expression provided'}, room=sid)
@@ -381,7 +383,7 @@ def handle_get_stack_trace():
 def handle_stop_debug():
     """User clicked 'Stop' button"""
     sid = request.sid
-    print(f"\n[SERVER] Stop requested by user: {sid}")
+    logger.log("SERVER", f"Stop requested by user: {sid}")
     _perform_cleanup(sid, reason="user_stop")
 
 def _perform_cleanup(sid, reason="unknown"):
@@ -392,26 +394,26 @@ def _perform_cleanup(sid, reason="unknown"):
     
     # 1. Stop the Adapter resources
     if adapter:
-        print(f"[SERVER] Cleaning up session {sid} (Reason: {reason})")
+        logger.log("SERVER", f" Cleaning up session {sid} (Reason: {reason})")
         session_manager.stop_session(sid) 
     else:
-        print(f"[SERVER] Cleanup requested for {sid}, but no session found.")
+        logger.log("SERVER", f" Cleanup requested for {sid}, but no session found.")
 
     try:
         socketio.emit('debug_terminated', {'reason': reason}, room=sid)
         # socketio.emit('force_disconnect', {}, room=sid)
     except Exception as e:
-        print(f"[SERVER] Error emitting cleanup events: {e}")
+        logger.log("SERVER", f" Error emitting cleanup events: {e}")
 
     # 3. Clean up Flask-SocketIO room (CRITICAL FIX HERE)
     try:
         socketio.server.leave_room(sid, sid, '/')
-        print(f"[SERVER] Left room {sid}")
+        logger.log("SERVER", f" Left room {sid}")
     except RuntimeError:
         # Fallback if we are somehow completely detached
-        print(f"[SERVER] Could not leave room (Context Error), but session is stopped.")
+        logger.log("SERVER", f" Could not leave room (Context Error), but session is stopped.")
     except Exception as e:
-        print(f"[SERVER] Error leaving room: {e}")
+        logger.log("SERVER", f" Error leaving room: {e}")
 
 def format_variables(variables: list) -> dict:
     result = {}
@@ -435,12 +437,12 @@ def format_variables(variables: list) -> dict:
     return result
 
 if __name__ == '__main__':
-    print("\n" + "="*60)
-    print("Starting Multi-Language Debug Server")
-    print("="*60)
-    print("Supported languages: Python, Java, C++")
-    print("Server: http://localhost:5003")
-    print("="*60 + "\n")
+    logger.log("flask","\n" + "="*60)
+    logger.log("flask","Starting Multi-Language Debug Server")
+    logger.log("flask","="*60)
+    logger.log("flask","Supported languages: Python, Java, C++")
+    logger.log("flask","Server: http://localhost:5003")
+    logger.log("flask","="*60 + "\n")
     
     try:
         socketio.run(
@@ -452,6 +454,6 @@ if __name__ == '__main__':
             use_reloader=False
         )
     finally:
-        print("\n[SERVER] Shutting down...")
+        logger.log("SERVER", "Shutting down...")
         session_manager.stop_all_sessions()
-        print("[SERVER] All sessions cleaned up")
+        logger.log("SERVER", "All sessions cleaned up")
