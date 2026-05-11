@@ -516,3 +516,128 @@ export async function getFeaturesUsed(
     return { success: false, error: String(error) }
   }
 }
+// ============================================================================
+// Admin API Endpoints (Placeholder)
+// ============================================================================
+
+export interface AdminProblem extends Problem {
+  topic?: string
+  time_complexity?: string
+  space_complexity?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface AdminProblemDetail {
+  problem: AdminProblem
+  hints: Array<{ level: number; title: string; content: string }>
+  public_test_cases: any[]
+  private_test_cases: any[]
+  code_templates: Array<{
+    id: string
+    language: string
+    template_code: string
+    function_name: string
+    input_params: Array<{ name: string; type: string }>
+    return_type: string
+  }>
+}
+
+/**
+ * Get all problems for admin (both learn and compete modes)
+ * TODO: Replace with actual backend call
+ */
+export async function getAdminProblems(mode: 'learn' | 'compete'): Promise<{ success: boolean; problems?: AdminProblem[]; error?: string }> {
+  // Placeholder: Use existing getProblems endpoint
+  try {
+    const response = await getProblems({ mode })
+    return response
+  } catch (error) {
+    console.error('[Admin API] Get problems error:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/**
+ * Get full problem details for admin including hints, test cases, and templates.
+ * Templates are fetched per-language using the existing /template?language= endpoint.
+ * TODO: Replace with a single admin endpoint when backend is ready.
+ */
+export async function getAdminProblemDetail(problemId: string): Promise<{ success: boolean; data?: AdminProblemDetail; error?: string }> {
+  const SUPPORTED_LANGUAGES = ['java', 'python', 'cpp']
+
+  try {
+    // Fetch problem, hints, raw test cases, and each language template in parallel
+    const [problemRes, hintsRes, testCasesRes, ...templateResults] = await Promise.all([
+      getProblem(problemId),
+      getHints(problemId),
+      // Fetch raw test cases (not flattened) for admin view
+      fetch(`${API_BASE_DB_URL}/api/problems/${problemId}/test-cases`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }).then(res => res.json()),
+      // Fetch each language template using the same pattern as getTemplate()
+      ...SUPPORTED_LANGUAGES.map(lang =>
+        fetch(`${API_BASE_DB_URL}/api/problems/${problemId}/template?language=${lang}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        })
+          .then(res => res.json())
+          .catch(() => ({ success: false }))
+      )
+    ])
+
+    if (!problemRes.success || !problemRes.problem) {
+      return { success: false, error: 'Problem not found' }
+    }
+
+    // Collect templates that were found (success === true)
+    const code_templates = templateResults
+      .filter((r: any) => r.success && r.template)
+      .map((r: any) => r.template)
+
+    return {
+      success: true,
+      data: {
+        problem: problemRes.problem as AdminProblem,
+        hints: hintsRes.hints || [],
+        public_test_cases: testCasesRes.public_test_cases || [],
+        private_test_cases: testCasesRes.private_test_cases || [],
+        code_templates
+      }
+    }
+  } catch (error) {
+    console.error('[Admin API] Get problem detail error:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/**
+ * Create a new problem
+ * TODO: Implement actual backend call
+ */
+export async function createProblem(problemData: Partial<AdminProblem>): Promise<{ success: boolean; problem?: AdminProblem; error?: string }> {
+  // Placeholder - implement when backend is ready
+  console.log('[Admin API] Create problem:', problemData)
+  return { success: false, error: 'Not implemented - backend endpoint needed' }
+}
+
+/**
+ * Update an existing problem
+ * TODO: Implement actual backend call
+ */
+export async function updateProblem(problemId: string, problemData: Partial<AdminProblem>): Promise<{ success: boolean; error?: string }> {
+  // Placeholder - implement when backend is ready
+  console.log('[Admin API] Update problem:', problemId, problemData)
+  return { success: false, error: 'Not implemented - backend endpoint needed' }
+}
+
+/**
+ * Delete a problem
+ * TODO: Implement actual backend call
+ */
+export async function deleteProblem(problemId: string): Promise<{ success: boolean; error?: string }> {
+  // Placeholder - implement when backend is ready
+  console.log('[Admin API] Delete problem:', problemId)
+  return { success: false, error: 'Not implemented - backend endpoint needed' }
+}
