@@ -39,11 +39,13 @@ export interface CodeTemplate {
   problem_id: string
   language: string
   template_code: string
+  driver_code?: string
+  solution_code?: string
   function_name: string
   input_params: Array<{
     name: string
     type: string
-  }>
+  }> | string
   return_type: string
 }
 
@@ -516,6 +518,7 @@ export async function getFeaturesUsed(
     return { success: false, error: String(error) }
   }
 }
+
 // ============================================================================
 // Admin API Endpoints (Placeholder)
 // ============================================================================
@@ -528,19 +531,23 @@ export interface AdminProblem extends Problem {
   updated_at?: string
 }
 
+export interface AdminCodeTemplate {
+  id?: string
+  language: string
+  template_code: string
+  driver_code: string
+  solution_code: string
+  function_name: string
+  input_params: Array<{ name: string; type: string }> | string
+  return_type: string
+}
+
 export interface AdminProblemDetail {
   problem: AdminProblem
   hints: Array<{ level: number; title: string; content: string }>
   public_test_cases: any[]
   private_test_cases: any[]
-  code_templates: Array<{
-    id: string
-    language: string
-    template_code: string
-    function_name: string
-    input_params: Array<{ name: string; type: string }>
-    return_type: string
-  }>
+  code_templates: AdminCodeTemplate[]
 }
 
 /**
@@ -613,31 +620,129 @@ export async function getAdminProblemDetail(problemId: string): Promise<{ succes
 }
 
 /**
- * Create a new problem
- * TODO: Implement actual backend call
+ * Create a new problem with all related data (hints, test cases, templates)
+ * POST /api/admin/problems
  */
-export async function createProblem(problemData: Partial<AdminProblem>): Promise<{ success: boolean; problem?: AdminProblem; error?: string }> {
-  // Placeholder - implement when backend is ready
-  console.log('[Admin API] Create problem:', problemData)
-  return { success: false, error: 'Not implemented - backend endpoint needed' }
+export async function adminCreateProblem(data: {
+  problem: Partial<AdminProblem> & { mode: string }
+  hints: Array<{ level: number; title: string; content: string }>
+  public_test_cases: any[]
+  private_test_cases: any[]
+  code_templates: AdminCodeTemplate[]
+}): Promise<{ success: boolean; problem_id?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error('[Admin API] Create problem error:', error)
+    return { success: false, error: String(error) }
+  }
 }
 
 /**
- * Update an existing problem
- * TODO: Implement actual backend call
+ * Update problem metadata only
+ * PUT /api/admin/problems/<problem_id>
  */
-export async function updateProblem(problemId: string, problemData: Partial<AdminProblem>): Promise<{ success: boolean; error?: string }> {
-  // Placeholder - implement when backend is ready
-  console.log('[Admin API] Update problem:', problemId, problemData)
-  return { success: false, error: 'Not implemented - backend endpoint needed' }
+export async function adminUpdateProblem(problemId: string, problemData: Partial<AdminProblem>): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(problemData),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error('[Admin API] Update problem error:', error)
+    return { success: false, error: String(error) }
+  }
 }
 
 /**
- * Delete a problem
- * TODO: Implement actual backend call
+ * Update hints for a problem
+ * PUT /api/admin/problems/<problem_id>/hints
  */
-export async function deleteProblem(problemId: string): Promise<{ success: boolean; error?: string }> {
-  // Placeholder - implement when backend is ready
-  console.log('[Admin API] Delete problem:', problemId)
-  return { success: false, error: 'Not implemented - backend endpoint needed' }
+export async function adminUpdateHints(problemId: string, hints: Array<{ level: number; title: string; content: string }>): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}/hints`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hints }),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error('[Admin API] Update hints error:', error)
+    return { success: false, error: String(error) }
+  }
 }
+
+/**
+ * Update test cases for a problem
+ * PUT /api/admin/problems/<problem_id>/test-cases
+ */
+export async function adminUpdateTestCases(problemId: string, publicTestCases: any[], privateTestCases: any[]): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}/test-cases`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        public_test_cases: publicTestCases,
+        private_test_cases: privateTestCases,
+      }),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error('[Admin API] Update test cases error:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/**
+ * Update code template for a specific language
+ * PUT /api/admin/problems/<problem_id>/templates/<language>
+ */
+export async function adminUpdateTemplate(problemId: string, language: string, templateData: {
+  template_code: string
+  driver_code: string
+  solution_code: string
+  function_name: string
+  input_params: Array<{ name: string; type: string }> | string
+  return_type: string
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}/templates/${language}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(templateData),
+    })
+    return await response.json()
+  } catch (error) {
+    console.error('[Admin API] Update template error:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/**
+ * Delete a problem and all associated data
+ * DELETE /api/admin/problems/<problem_id>
+ */
+export async function adminDeleteProblem(problemId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error('[Admin API] Delete problem error:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+// Keep old function names as aliases for backward compatibility
+export const createProblem = adminCreateProblem
+export const updateProblem = adminUpdateProblem
+export const deleteProblem = adminDeleteProblem

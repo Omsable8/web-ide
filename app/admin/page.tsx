@@ -14,14 +14,27 @@ import {
   ChevronRight,
   Plus,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Save
 } from 'lucide-react'
-import { getAdminProblems, getAdminProblemDetail, AdminProblem, AdminProblemDetail, updateProblem, deleteProblem, createProblem } from '@/lib/api'
+import { 
+  getAdminProblems, 
+  getAdminProblemDetail, 
+  AdminProblem, 
+  AdminProblemDetail,
+  AdminCodeTemplate,
+  adminCreateProblem,
+  adminUpdateProblem,
+  adminUpdateHints,
+  adminUpdateTestCases,
+  adminUpdateTemplate,
+  adminDeleteProblem
+} from '@/lib/api'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 
@@ -43,8 +56,10 @@ interface EditableTemplate {
   id?: string
   language: string
   template_code: string
+  driver_code: string
+  solution_code: string
   function_name: string
-  input_params: Array<{ name: string; type: string }>
+  input_params: Array<{ name: string; type: string }> | string
   return_type: string
 }
 
@@ -60,6 +75,7 @@ interface EditableProblemDetail {
     constraints: string
     time_complexity: string
     space_complexity: string
+    mode?: string
   }
   hints: EditableHint[]
   public_test_cases: string
@@ -67,7 +83,7 @@ interface EditableProblemDetail {
   code_templates: EditableTemplate[]
 }
 
-const emptyProblemDetail: EditableProblemDetail = {
+const getEmptyProblemDetail = (mode: 'learn' | 'compete'): EditableProblemDetail => ({
   problem: {
     title: '',
     description: '',
@@ -77,13 +93,14 @@ const emptyProblemDetail: EditableProblemDetail = {
     examples: '',
     constraints: '',
     time_complexity: '',
-    space_complexity: ''
+    space_complexity: '',
+    mode
   },
   hints: [],
-  public_test_cases: '',
-  private_test_cases: '',
+  public_test_cases: '[]',
+  private_test_cases: '[]',
   code_templates: []
-}
+})
 
 export default function AdminPage() {
   const [learnProblems, setLearnProblems] = useState<Problem[]>([])
@@ -106,6 +123,12 @@ export default function AdminPage() {
   const [problemToDelete, setProblemToDelete] = useState<Problem | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Track which section is being updated
+  type UpdateType = 'create' | 'problem' | 'hints' | 'testcases' | 'template'
+  const [updateType, setUpdateType] = useState<UpdateType>('problem')
+  const [templateToUpdate, setTemplateToUpdate] = useState<string>('') // language of template being updated
+  const [updatingSection, setUpdatingSection] = useState<string | null>(null) // track which button is loading
 
   // Collapsible sections
   const [learnExpanded, setLearnExpanded] = useState(true)
@@ -151,7 +174,14 @@ export default function AdminPage() {
     try {
       const response = await getAdminProblemDetail(problem.id)
       if (response.success && response.data) {
-        // Convert to editable format
+        // Convert to editable format, ensuring driver_code and solution_code exist
+        const templatesWithAllFields = (response.data.code_templates || []).map(t => ({
+          ...t,
+          driver_code: t.driver_code || '',
+          solution_code: t.solution_code || '',
+          input_params: typeof t.input_params === 'string' ? t.input_params : JSON.stringify(t.input_params || [])
+        }))
+        
         setEditableDetail({
           problem: {
             id: response.data.problem.id,
@@ -163,12 +193,13 @@ export default function AdminPage() {
             examples: response.data.problem.examples || '',
             constraints: response.data.problem.constraints || '',
             time_complexity: response.data.problem.time_complexity || '',
-            space_complexity: response.data.problem.space_complexity || ''
+            space_complexity: response.data.problem.space_complexity || '',
+            mode: response.data.problem.mode || 'learn'
           },
           hints: response.data.hints || [],
           public_test_cases: JSON.stringify(response.data.public_test_cases || [], null, 2),
           private_test_cases: JSON.stringify(response.data.private_test_cases || [], null, 2),
-          code_templates: response.data.code_templates || []
+          code_templates: templatesWithAllFields
         })
       }
     } catch (error) {
@@ -182,7 +213,7 @@ export default function AdminPage() {
     setCurrentMode(mode)
     setSelectedProblem(null)
     setIsNewProblem(true)
-    setEditableDetail({ ...emptyProblemDetail })
+    setEditableDetail(getEmptyProblemDetail(mode))
     setIsDialogOpen(true)
   }
 
@@ -204,7 +235,7 @@ export default function AdminPage() {
     
     setIsDeleting(true)
     try {
-      const response = await deleteProblem(problemToDelete.id)
+      const response = await adminDeleteProblem(problemToDelete.id)
       if (response.success) {
         // Refresh the problems list
         await fetchAllProblems()
@@ -221,7 +252,9 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = (type: UpdateType, templateLang?: string) => {
+    setUpdateType(type)
+    if (templateLang) setTemplateToUpdate(templateLang)
     setShowUpdateConfirm(true)
   }
 
@@ -229,33 +262,84 @@ export default function AdminPage() {
     if (!editableDetail) return
 
     setIsUpdating(true)
+    setUpdatingSection(updateType === 'template' ? `template-${templateToUpdate}` : updateType)
+    
     try {
-      if (isNewProblem) {
-        const response = await createProblem({
-          ...editableDetail.problem,
-          // Include mode information
-        } as AdminProblem)
+      if (updateType === 'create' || isNewProblem) {
+        // Create new problem with all data
+        const response = await adminCreateProblem({
+          problem: {
+            ...editableDetail.problem,
+            mode: currentMode
+          } as AdminProblem & { mode: string },
+          hints: editableDetail.hints,
+          public_test_cases: JSON.parse(editableDetail.public_test_cases || '[]'),
+          private_test_cases: JSON.parse(editableDetail.private_test_cases || '[]'),
+          code_templates: editableDetail.code_templates.map(t => ({
+            ...t,
+            input_params: typeof t.input_params === 'string' ? t.input_params : JSON.stringify(t.input_params)
+          }))
+        })
         if (response.success) {
           await fetchAllProblems()
           closeDialog()
         } else {
           alert('Failed to create problem: ' + (response.error || 'Unknown error'))
         }
-      } else {
-        const response = await updateProblem(editableDetail.problem.id!, editableDetail.problem as AdminProblem)
+      } else if (updateType === 'problem') {
+        // Update problem metadata only
+        const response = await adminUpdateProblem(editableDetail.problem.id!, editableDetail.problem)
         if (response.success) {
-          await fetchAllProblems()
-          closeDialog()
+          alert('Problem metadata updated successfully!')
         } else {
           alert('Failed to update problem: ' + (response.error || 'Unknown error'))
+        }
+      } else if (updateType === 'hints') {
+        // Update hints only
+        const response = await adminUpdateHints(editableDetail.problem.id!, editableDetail.hints)
+        if (response.success) {
+          alert('Hints updated successfully!')
+        } else {
+          alert('Failed to update hints: ' + (response.error || 'Unknown error'))
+        }
+      } else if (updateType === 'testcases') {
+        // Update test cases only
+        const response = await adminUpdateTestCases(
+          editableDetail.problem.id!,
+          JSON.parse(editableDetail.public_test_cases || '[]'),
+          JSON.parse(editableDetail.private_test_cases || '[]')
+        )
+        if (response.success) {
+          alert('Test cases updated successfully!')
+        } else {
+          alert('Failed to update test cases: ' + (response.error || 'Unknown error'))
+        }
+      } else if (updateType === 'template' && templateToUpdate) {
+        // Update specific template
+        const template = editableDetail.code_templates.find(t => t.language === templateToUpdate)
+        if (template) {
+          const response = await adminUpdateTemplate(editableDetail.problem.id!, templateToUpdate, {
+            template_code: template.template_code,
+            driver_code: template.driver_code,
+            solution_code: template.solution_code,
+            function_name: template.function_name,
+            input_params: template.input_params,
+            return_type: template.return_type
+          })
+          if (response.success) {
+            alert(`${templateToUpdate.toUpperCase()} template updated successfully!`)
+          } else {
+            alert('Failed to update template: ' + (response.error || 'Unknown error'))
+          }
         }
       }
     } catch (error) {
       console.error('Update error:', error)
-      alert('Failed to save problem')
+      alert('Failed to save: ' + String(error))
     } finally {
       setIsUpdating(false)
       setShowUpdateConfirm(false)
+      setUpdatingSection(null)
     }
   }
 
@@ -292,6 +376,7 @@ export default function AdminPage() {
   const updateTemplate = (index: number, field: keyof EditableTemplate, value: string) => {
     if (!editableDetail) return
     const newTemplates = [...editableDetail.code_templates]
+    // For input_params, store as string for editing, will be parsed when sending to backend
     newTemplates[index] = { ...newTemplates[index], [field]: value }
     setEditableDetail({ ...editableDetail, code_templates: newTemplates })
   }
@@ -302,7 +387,7 @@ export default function AdminPage() {
       ...editableDetail,
       code_templates: [
         ...editableDetail.code_templates,
-        { language: 'java', template_code: '', function_name: '', input_params: [], return_type: '' }
+        { language: 'java', template_code: '', driver_code: '', solution_code: '', function_name: '', input_params: '[]', return_type: '' }
       ]
     })
   }
@@ -495,354 +580,250 @@ export default function AdminPage() {
         />
       </main>
 
-      {/* Problem Detail/Edit Dialog */}
+      {/* Problem Detail/Edit Dialog - 4 Column Layout */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[90vh] p-0 overflow-hidden flex flex-col">
-          <DialogHeader className="px-8 py-4 border-b border-border shrink-0">
-            <DialogTitle className="text-xl font-bold">
-              {isNewProblem ? `Add New Problem — ${currentMode === 'learn' ? 'Learn' : 'Compete'} Mode` : 'Edit Problem'}
-            </DialogTitle>
-            <DialogDescription>
-              {isNewProblem ? 'Fill in the details to create a new problem.' : 'Modify the problem details below. Click Update Problem when done.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Scrollable body */}
-          <div className="flex-1 overflow-y-auto">
-            {loadingDetail ? (
-              <div className="flex justify-center items-center h-full">
-                <Loader2 className="w-8 h-8 text-accent animate-spin" />
-              </div>
-            ) : editableDetail ? (
-              <div className="px-8 py-6 space-y-6">
-
-                {/* Title */}
-                <div>
-                  <Label htmlFor="title">Title</Label>
+        <DialogContent className="max-w-[99vw] w-[99vw] h-[92vh] p-0 overflow-hidden flex flex-col" showCloseButton={false}>
+          {/* Accessibility: Hidden DialogTitle */}
+          <DialogTitle className="sr-only">
+            {isNewProblem ? `New Problem — ${currentMode === 'learn' ? 'Learn' : 'Compete'} Mode` : `Edit Problem — ${editableDetail?.problem.title || 'Untitled'}`}
+          </DialogTitle>
+          
+          {/* Compact Header with Title and ID */}
+          <div className="px-6 py-3 border-b border-border bg-muted/30 shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {isNewProblem ? (
+                <span className="text-lg font-semibold text-foreground">
+                  New Problem — {currentMode === 'learn' ? 'Learn' : 'Compete'} Mode
+                </span>
+              ) : (
+                <>
                   <Input
-                    id="title"
-                    value={editableDetail.problem.title}
+                    value={editableDetail?.problem.title || ''}
                     onChange={(e) => updateProblemField('title', e.target.value)}
                     placeholder="Problem title"
-                    className="mt-1"
+                    className="text-base font-semibold w-[500px] h-9"
                   />
+                  <span className="text-xs text-muted-foreground font-mono">
+                    ID: {editableDetail?.problem.id?.slice(0, 8)}...
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {isNewProblem ? (
+                <>
+                  <Button variant="outline" size="sm" onClick={closeDialog}>Cancel</Button>
+                  <Button size="sm" onClick={() => handleUpdate('create')} disabled={!editableDetail || isUpdating}>
+                    {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Problem'}
+                  </Button>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" onClick={closeDialog}>Close</Button>
+              )}
+            </div>
+          </div>
+
+          {/* 4-Column Body */}
+          {loadingDetail ? (
+            <div className="flex-1 flex justify-center items-center">
+              <Loader2 className="w-8 h-8 text-accent animate-spin" />
+            </div>
+          ) : editableDetail ? (
+            <div className="flex-1 grid grid-cols-4 divide-x divide-border overflow-hidden">
+              
+              {/* Column 1: Problem Metadata */}
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="px-5 py-3 bg-muted/50 border-b border-border shrink-0">
+                  <h3 className="text-base font-semibold text-foreground">Problem Metadata</h3>
                 </div>
-
-                {/* Metadata fields */}
-                <div className="grid grid-cols-5 gap-4">
-                  <div>
-                    <Label htmlFor="difficulty">Difficulty</Label>
-                    <Select
-                      value={editableDetail.problem.difficulty}
-                      onValueChange={(value) => updateProblemField('difficulty', value)}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select difficulty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Easy">Easy</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="Hard">Hard</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={editableDetail.problem.category}
-                      onChange={(e) => updateProblemField('category', e.target.value)}
-                      placeholder="e.g., Arrays"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="topic">Topic</Label>
-                    <Input
-                      id="topic"
-                      value={editableDetail.problem.topic}
-                      onChange={(e) => updateProblemField('topic', e.target.value)}
-                      placeholder="e.g., Binary Search"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="time_complexity">Time Complexity</Label>
-                    <Input
-                      id="time_complexity"
-                      value={editableDetail.problem.time_complexity}
-                      onChange={(e) => updateProblemField('time_complexity', e.target.value)}
-                      placeholder="e.g., O(n)"
-                      className="mt-1 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="space_complexity">Space Complexity</Label>
-                    <Input
-                      id="space_complexity"
-                      value={editableDetail.problem.space_complexity}
-                      onChange={(e) => updateProblemField('space_complexity', e.target.value)}
-                      placeholder="e.g., O(1)"
-                      className="mt-1 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Description */}
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={editableDetail.problem.description}
-                    onChange={(e) => updateProblemField('description', e.target.value)}
-                    placeholder="Problem description..."
-                    className="mt-1 min-h-[150px] font-mono text-sm resize-none"
-                  />
-                </div>
-
-                {/* Examples */}
-                <div>
-                  <Label htmlFor="examples">Examples</Label>
-                  <Textarea
-                    id="examples"
-                    value={editableDetail.problem.examples}
-                    onChange={(e) => updateProblemField('examples', e.target.value)}
-                    placeholder="Input: nums = [1,2,3]\nOutput: 6"
-                    className="mt-1 min-h-[100px] font-mono text-sm resize-none"
-                  />
-                </div>
-
-                {/* Constraints */}
-                <div>
-                  <Label htmlFor="constraints">Constraints</Label>
-                  <Textarea
-                    id="constraints"
-                    value={editableDetail.problem.constraints}
-                    onChange={(e) => updateProblemField('constraints', e.target.value)}
-                    placeholder="1 <= nums.length <= 10^5"
-                    className="mt-1 min-h-[80px] font-mono text-sm resize-none"
-                  />
-                </div>
-
-                <Separator />
-
-                {/* Hints */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <Label className="text-base font-semibold">
-                      Hints
-                      <Badge variant="secondary" className="ml-2">{editableDetail.hints.length}</Badge>
-                    </Label>
-                    <Button size="sm" variant="outline" onClick={addHint}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Hint
-                    </Button>
-                  </div>
-                  {editableDetail.hints.length > 0 ? (
-                    <div className="space-y-3">
-                      {editableDetail.hints.map((hint, index) => (
-                        <div key={index} className="bg-muted/30 rounded-lg p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 grid grid-cols-4 gap-2">
-                              <div>
-                                <Label className="text-xs">Level</Label>
-                                <Input
-                                  type="number"
-                                  value={hint.level}
-                                  onChange={(e) => updateHint(index, 'level', parseInt(e.target.value) || 1)}
-                                  className="mt-1"
-                                  min={1}
-                                />
-                              </div>
-                              <div className="col-span-3">
-                                <Label className="text-xs">Title</Label>
-                                <Input
-                                  value={hint.title}
-                                  onChange={(e) => updateHint(index, 'title', e.target.value)}
-                                  placeholder="Hint title"
-                                  className="mt-1"
-                                />
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive h-8 w-8 p-0 mt-5 shrink-0"
-                              onClick={() => removeHint(index)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div>
-                            <Label className="text-xs">Content</Label>
-                            <Textarea
-                              value={hint.content}
-                              onChange={(e) => updateHint(index, 'content', e.target.value)}
-                              placeholder="Hint content..."
-                              className="mt-1 min-h-[60px] resize-none"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground text-sm text-center py-6 bg-muted/20 rounded-lg">
-                      No hints added yet
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                  {isNewProblem && (
+                    <div>
+                      <Label className="text-sm font-medium">Title</Label>
+                      <Input value={editableDetail.problem.title} onChange={(e) => updateProblemField('title', e.target.value)} placeholder="Problem title" className="mt-2 h-9 text-sm" />
                     </div>
                   )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm font-medium">Difficulty</Label>
+                      <Select value={editableDetail.problem.difficulty} onValueChange={(value) => updateProblemField('difficulty', value)}>
+                        <SelectTrigger className="mt-2 h-9 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Easy">Easy</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="Hard">Hard</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Category</Label>
+                      <Input value={editableDetail.problem.category} onChange={(e) => updateProblemField('category', e.target.value)} placeholder="Arrays" className="mt-2 h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm font-medium">Topic</Label>
+                      <Input value={editableDetail.problem.topic} onChange={(e) => updateProblemField('topic', e.target.value)} placeholder="Binary Search" className="mt-2 h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Time</Label>
+                      <Input value={editableDetail.problem.time_complexity} onChange={(e) => updateProblemField('time_complexity', e.target.value)} placeholder="O(n)" className="mt-2 h-9 text-sm font-mono" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Space Complexity</Label>
+                    <Input value={editableDetail.problem.space_complexity} onChange={(e) => updateProblemField('space_complexity', e.target.value)} placeholder="O(1)" className="mt-2 h-9 text-sm font-mono" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Description</Label>
+                    <Textarea value={editableDetail.problem.description} onChange={(e) => updateProblemField('description', e.target.value)} placeholder="Problem description..." className="mt-2 min-h-[120px] text-sm font-mono resize-none" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Examples</Label>
+                    <Textarea value={editableDetail.problem.examples} onChange={(e) => updateProblemField('examples', e.target.value)} placeholder="Input: nums = [1,2,3]..." className="mt-2 min-h-[100px] text-sm font-mono resize-none" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Constraints</Label>
+                    <Textarea value={editableDetail.problem.constraints} onChange={(e) => updateProblemField('constraints', e.target.value)} placeholder="1 <= n <= 10^5" className="mt-2 min-h-[80px] text-sm font-mono resize-none" />
+                  </div>
                 </div>
-
-                <Separator />
-
-                {/* Test Cases */}
-                <div>
-                  <Label className="text-base font-semibold">Test Cases</Label>
-                  <Tabs defaultValue="public" className="mt-3">
-                    <TabsList>
-                      <TabsTrigger value="public">Public</TabsTrigger>
-                      <TabsTrigger value="private">Private</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="public">
-                      <Textarea
-                        value={editableDetail.public_test_cases}
-                        onChange={(e) => setEditableDetail({ ...editableDetail, public_test_cases: e.target.value })}
-                        placeholder="Raw JSON array of public test cases..."
-                        className="min-h-[180px] font-mono text-xs resize-none"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">Raw JSON — public (visible) test cases</p>
-                    </TabsContent>
-                    <TabsContent value="private">
-                      <Textarea
-                        value={editableDetail.private_test_cases}
-                        onChange={(e) => setEditableDetail({ ...editableDetail, private_test_cases: e.target.value })}
-                        placeholder="Raw JSON array of private test cases..."
-                        className="min-h-[180px] font-mono text-xs resize-none"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">Raw JSON — private (hidden) test cases</p>
-                    </TabsContent>
-                  </Tabs>
-                </div>
-
-                <Separator />
-
-                {/* Code Templates */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <Label className="text-base font-semibold">
-                      Code Templates
-                      <Badge variant="secondary" className="ml-2">{editableDetail.code_templates.length}</Badge>
-                    </Label>
-                    <Button size="sm" variant="outline" onClick={addTemplate}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Template
+                {!isNewProblem && (
+                  <div className="p-5 border-t border-border shrink-0">
+                    <Button onClick={() => handleUpdate('problem')} disabled={updatingSection === 'problem'} variant="secondary" size="sm" className="w-full h-9 text-sm">
+                      {updatingSection === 'problem' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      Update Metadata
                     </Button>
                   </div>
+                )}
+              </div>
+
+              {/* Column 2: Hints */}
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="px-5 py-3 bg-muted/50 border-b border-border shrink-0 flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-foreground">Hints <Badge variant="secondary" className="ml-2 text-xs">{editableDetail.hints.length}</Badge></h3>
+                  <Button size="sm" variant="ghost" onClick={addHint} className="h-7 px-3 text-xs"><Plus className="w-4 h-4 mr-1" />Add</Button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                  {editableDetail.hints.length > 0 ? editableDetail.hints.map((hint, index) => (
+                    <div key={index} className="bg-muted/30 rounded p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input type="number" value={hint.level} onChange={(e) => updateHint(index, 'level', parseInt(e.target.value) || 1)} className="w-14 h-8 text-sm" min={1} />
+                        <Input value={hint.title} onChange={(e) => updateHint(index, 'title', e.target.value)} placeholder="Title" className="flex-1 h-8 text-sm" />
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => removeHint(index)}><Trash2 className="w-4 h-4" /></Button>
+                      </div>
+                      <Textarea value={hint.content} onChange={(e) => updateHint(index, 'content', e.target.value)} placeholder="Hint content..." className="min-h-[70px] text-sm resize-none" />
+                    </div>
+                  )) : (
+                    <div className="text-muted-foreground text-sm text-center py-10 bg-muted/20 rounded">No hints yet</div>
+                  )}
+                </div>
+                {!isNewProblem && (
+                  <div className="p-5 border-t border-border shrink-0">
+                    <Button onClick={() => handleUpdate('hints')} disabled={updatingSection === 'hints'} variant="secondary" size="sm" className="w-full h-9 text-sm">
+                      {updatingSection === 'hints' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      Update Hints
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Column 3: Test Cases */}
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="px-5 py-3 bg-muted/50 border-b border-border shrink-0">
+                  <h3 className="text-base font-semibold text-foreground">Test Cases</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium">Public Test Cases</Label>
+                    <Textarea value={editableDetail.public_test_cases} onChange={(e) => setEditableDetail({ ...editableDetail, public_test_cases: e.target.value })} placeholder="Raw JSON array..." className="mt-2 min-h-[200px] text-sm font-mono resize-none" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Private Test Cases</Label>
+                    <Textarea value={editableDetail.private_test_cases} onChange={(e) => setEditableDetail({ ...editableDetail, private_test_cases: e.target.value })} placeholder="Raw JSON array..." className="mt-2 min-h-[200px] text-sm font-mono resize-none" />
+                  </div>
+                </div>
+                {!isNewProblem && (
+                  <div className="p-5 border-t border-border shrink-0">
+                    <Button onClick={() => handleUpdate('testcases')} disabled={updatingSection === 'testcases'} variant="secondary" size="sm" className="w-full h-9 text-sm">
+                      {updatingSection === 'testcases' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      Update Test Cases
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Column 4: Code Templates */}
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="px-5 py-3 bg-muted/50 border-b border-border shrink-0 flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-foreground">Templates <Badge variant="secondary" className="ml-2 text-xs">{editableDetail.code_templates.length}</Badge></h3>
+                  <Button size="sm" variant="ghost" onClick={addTemplate} className="h-7 px-3 text-xs"><Plus className="w-4 h-4 mr-1" />Add</Button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
                   {editableDetail.code_templates.length > 0 ? (
-                    <Tabs defaultValue={editableDetail.code_templates[0]?.language || 'java'}>
-                      <TabsList className="mb-3">
-                        {editableDetail.code_templates.map((template, index) => (
-                          <TabsTrigger key={index} value={`${template.language}-${index}`}>
-                            {template.language.toUpperCase()}
-                          </TabsTrigger>
+                    <Tabs defaultValue={`${editableDetail.code_templates[0]?.language}-0`} className="h-full flex flex-col">
+                      <TabsList className="mx-5 mt-3 shrink-0">
+                        {editableDetail.code_templates.map((t, i) => (
+                          <TabsTrigger key={i} value={`${t.language}-${i}`} className="text-xs">{t.language.toUpperCase()}</TabsTrigger>
                         ))}
                       </TabsList>
                       {editableDetail.code_templates.map((template, index) => (
-                        <TabsContent key={index} value={`${template.language}-${index}`}>
-                          <div className="bg-muted/30 rounded-lg p-4 space-y-3">
-                            <div className="flex items-end gap-3">
-                              <div className="flex-1 grid grid-cols-4 gap-3">
-                                <div>
-                                  <Label className="text-xs">Language</Label>
-                                  <Select
-                                    value={template.language}
-                                    onValueChange={(value) => updateTemplate(index, 'language', value)}
-                                  >
-                                    <SelectTrigger className="mt-1">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="java">Java</SelectItem>
-                                      <SelectItem value="python">Python</SelectItem>
-                                      <SelectItem value="cpp">C++</SelectItem>
-                                      <SelectItem value="javascript">JavaScript</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div>
-                                  <Label className="text-xs">Function Name</Label>
-                                  <Input
-                                    value={template.function_name}
-                                    onChange={(e) => updateTemplate(index, 'function_name', e.target.value)}
-                                    placeholder="e.g., twoSum"
-                                    className="mt-1 font-mono"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="text-xs">Return Type</Label>
-                                  <Input
-                                    value={template.return_type}
-                                    onChange={(e) => updateTemplate(index, 'return_type', e.target.value)}
-                                    placeholder="e.g., int[]"
-                                    className="mt-1 font-mono"
-                                  />
-                                </div>
-                                <div className="flex items-end">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-destructive hover:text-destructive h-9 w-9 p-0 mb-0.5"
-                                    onClick={() => removeTemplate(index)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
+                        <TabsContent key={index} value={`${template.language}-${index}`} className="flex-1 overflow-y-auto p-5 space-y-3 mt-0">
+                          <div className="flex gap-3">
+                            <div className="flex-1">
+                              <Label className="text-sm font-medium">Language</Label>
+                              <Select value={template.language} onValueChange={(v) => updateTemplate(index, 'language', v)}>
+                                <SelectTrigger className="mt-2 h-8 text-sm"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="java">Java</SelectItem>
+                                  <SelectItem value="python">Python</SelectItem>
+                                  <SelectItem value="cpp">C++</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
-                            <div>
-                              <Label className="text-xs">Template Code</Label>
-                              <Textarea
-                                value={template.template_code}
-                                onChange={(e) => updateTemplate(index, 'template_code', e.target.value)}
-                                placeholder={"public int[] twoSum(int[] nums, int target) {\n    // Your code here\n}"}
-                                className="mt-1 min-h-[160px] font-mono text-sm resize-none"
-                              />
+                            <div className="flex-1">
+                              <Label className="text-sm font-medium">Function</Label>
+                              <Input value={template.function_name} onChange={(e) => updateTemplate(index, 'function_name', e.target.value)} className="mt-2 h-8 text-sm font-mono" />
                             </div>
+                            <div className="flex-1">
+                              <Label className="text-sm font-medium">Return</Label>
+                              <Input value={template.return_type} onChange={(e) => updateTemplate(index, 'return_type', e.target.value)} className="mt-2 h-8 text-sm font-mono" />
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 mt-6 text-destructive" onClick={() => removeTemplate(index)}><Trash2 className="w-4 h-4" /></Button>
                           </div>
+                          <div>
+                            <Label className="text-sm font-medium">Input Params (JSON)</Label>
+                            <Input value={typeof template.input_params === 'string' ? template.input_params : JSON.stringify(template.input_params)} onChange={(e) => updateTemplate(index, 'input_params', e.target.value)} className="mt-2 h-8 text-sm font-mono" />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Template Code</Label>
+                            <Textarea value={template.template_code} onChange={(e) => updateTemplate(index, 'template_code', e.target.value)} className="mt-2 min-h-[80px] text-xs font-mono resize-none" />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Driver Code</Label>
+                            <Textarea value={template.driver_code} onChange={(e) => updateTemplate(index, 'driver_code', e.target.value)} className="mt-2 min-h-[80px] text-xs font-mono resize-none" />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Solution Code</Label>
+                            <Textarea value={template.solution_code} onChange={(e) => updateTemplate(index, 'solution_code', e.target.value)} className="mt-2 min-h-[80px] text-xs font-mono resize-none" />
+                          </div>
+                          {!isNewProblem && (
+                            <Button onClick={() => handleUpdate('template', template.language)} disabled={updatingSection === `template-${template.language}`} variant="secondary" size="sm" className="w-full h-8 text-xs mt-2">
+                              {updatingSection === `template-${template.language}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                              Update {template.language.toUpperCase()}
+                            </Button>
+                          )}
                         </TabsContent>
                       ))}
                     </Tabs>
                   ) : (
-                    <div className="text-muted-foreground text-sm text-center py-6 bg-muted/20 rounded-lg">
-                      No code templates added yet
-                    </div>
+                    <div className="text-muted-foreground text-sm text-center py-10 px-5 bg-muted/20 m-5 rounded">No templates yet</div>
                   )}
                 </div>
               </div>
-            ) : (
-              <div className="flex justify-center items-center h-full text-muted-foreground">
-                Failed to load problem details
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="px-8 py-4 border-t border-border bg-muted/30 shrink-0">
-            <Button variant="outline" onClick={closeDialog}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdate}
-              disabled={!editableDetail || isUpdating}
-              className="min-w-[140px]"
-            >
-              {isUpdating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                isNewProblem ? 'Create Problem' : 'Update Problem'
-              )}
-            </Button>
-          </DialogFooter>
+            </div>
+          ) : (
+            <div className="flex-1 flex justify-center items-center text-muted-foreground">Failed to load problem details</div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -852,12 +833,20 @@ export default function AdminPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Confirm {isNewProblem ? 'Creation' : 'Update'}
+              Confirm {updateType === 'create' || isNewProblem ? 'Creation' : 'Update'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {isNewProblem 
-                ? 'Are you sure you want to create this new problem? This will add it to the database.'
-                : 'Are you sure you want to update this problem? This will modify the existing data in the database.'
+              {updateType === 'create' || isNewProblem 
+                ? 'Are you sure you want to create this new problem? This will add the problem along with all hints, test cases, and code templates to the database.'
+                : updateType === 'problem'
+                ? 'Are you sure you want to update the problem metadata? This will modify the title, description, difficulty, category, topic, examples, constraints, and complexity fields.'
+                : updateType === 'hints'
+                ? 'Are you sure you want to update the hints? This will replace all existing hints with the current hints.'
+                : updateType === 'testcases'
+                ? 'Are you sure you want to update the test cases? This will modify both public and private test cases.'
+                : updateType === 'template'
+                ? `Are you sure you want to update the ${templateToUpdate.toUpperCase()} template? This will modify the template code, driver code, solution code, and related fields for this language.`
+                : 'Are you sure you want to save these changes?'
               }
             </AlertDialogDescription>
           </AlertDialogHeader>

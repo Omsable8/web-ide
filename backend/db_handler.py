@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, disconnect
 from config import Config
-import os
+from psycopg2.extras import Json
 
 from auth_handler import AuthHandler
 from data_logger import DataLogger
@@ -357,12 +357,189 @@ def get_template(problem_id):
         logger.log("ERROR", f"Get template failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+# ============================================================================
+# Admin Endpoints
+# ============================================================================
+@app.route('/api/admin/problems', methods=['POST'])
+def admin_create_problem():
+    """Create a new problem along with its hints and templates"""
+    try:
+        data = request.get_json()
+        problem = data.get('problem')
+        # 1. Insert Problem Metadata
+        problem_id = execute_write(
+            """INSERT INTO problems (title, description, difficulty, category, mode, topic, examples, constraints, time_complexity, space_complexity) 
+               VALUES (:title, :desc, :diff, :cat, :mode, :topic, :ex, :constraints, :tc, :sc) RETURNING id""",
+            {
+                "title": problem.get('title'),
+                "desc": problem.get('description'),
+                "diff": problem.get('difficulty'),
+                "cat": problem.get('category'),
+                "mode": problem.get('mode', 'learn'),
+                "topic": problem.get('topic'),
+                "ex": problem.get('examples'),
+                "constraints": problem.get('constraints'),
+                "tc": problem.get('time_complexity'),
+                "sc": problem.get('space_complexity')
+            }
+        )
+
+        # 2. Insert Hints if provided
+        execute_write(
+            "INSERT INTO hints (problem_id, hints_data) VALUES (:pid, :hints_data)",
+            {"pid": problem_id, "hints_data":data.get('hints')}
+        )
+
+        # 3. Insert test_cases
+        if data.get('public_test_cases'):
+            execute_write(
+                """INSERT INTO test_cases (problem_id, input_params, is_hidden) 
+                    VALUES (:pid, :input_params, :is_hidden)""",
+                {"pid": problem_id, "input_params": data.get('public_test_cases'), "is_hidden": False}
+            )
+        if data.get('private_test_cases'):
+            execute_write(
+                """INSERT INTO test_cases (problem_id, input_params, is_hidden) 
+                    VALUES (:pid, :input_params, :is_hidden)""",
+                {"pid": problem_id, "input_params": data.get('private_test_cases'), "is_hidden": True}
+            )
+
+        # 4. Insert Code Templates
+        if 'code_templates' in data:
+            for temp in data['code_templates']:
+                execute_write(
+                    """INSERT INTO code_templates (problem_id, language, template_code, driver_code, solution_code, function_name, input_params, return_type) 
+                       VALUES (:pid, :lang, :t_code, :d_code, :s_code, :f_name, :inp_params, :rtype)""",
+                    {"pid": problem_id, "lang": temp['language'], "t_code": temp['template_code'], "d_code": temp['driver_code'],
+                        "s_code": temp['solution_code'],"f_name": temp['function_name'],"inp_params": temp['input_params'], 
+                        "rtype":temp['return_type']}
+                )
+
+        _fetch_problems_from_db.cache_clear()
+        return jsonify({"success": True, "problem_id": problem_id}), 201
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/admin/problems/<problem_id>', methods=['PUT'])
+def admin_update_problem(problem_id):
+    """Update existing problem metadata and clear relevant caches"""
+    try:
+        data = request.get_json()
+        
+        # Update metadata
+        execute_write(
+            """UPDATE problems SET title = :title, description = :desc, difficulty = :diff, category = :cat, examples = :ex, constraints = :con,
+               topic = :topic, time_complexity = :tc, space_complexity = :sc, updated_at = CURRENT_TIMESTAMP WHERE id = :pid""",
+            {
+                "pid": problem_id,
+                "title": data.get('title'),
+                "desc": data.get('description'),
+                "diff": data.get('difficulty'),
+                "cat": data.get('category'),
+                "ex": data.get('examples'),
+                "con": data.get('constraints'),
+                "topic": data.get('topic'),
+                "tc": data.get('time_complexity'),
+                "sc": data.get('space_complexity')
+            }
+        )
+
+        # Clear the specific problem metdata from LRU cache
+        _fetch_problem_from_db.cache_clear()
+        
+        return jsonify({"success": True, "message": "Problem updated successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/admin/problems/<problem_id>/hints', methods=['PUT'])
+def admin_update_hints(problem_id):
+    """Replace all hints for a specific problem"""
+    try:
+        data = request.get_json() # Expects a list of hint objects
+        hints = data.get('hints', [])
+        # Replace old one
+        execute_write("DELETE FROM hints WHERE problem_id = :pid", {"pid": problem_id})
+        
+        execute_write("INSERT INTO hints (problem_id, hints_data) VALUES (:pid, :hints)",
+                      {"pid": problem_id, "hints":Json(hints)})
+    
+        return jsonify({"success": True, "message": "Hints updated successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/problems/<problem_id>/test-cases', methods=['PUT'])
+def admin_update_test_cases(problem_id):
+    """Update public and private test cases"""
+    try:
+        data = request.get_json()
+        if data.get('public_test_cases'):
+
+            execute_write(
+                """UPDATE test_cases SET input_params = :public_test_cases WHERE problem_id = :pid and is_hidden= :hidden""",
+                {"pid": problem_id,
+                    "public_test_cases": json.dumps(data.get('public_test_cases', [])),
+                    "hidden": False,}
+            )
+        if data.get('private_test_cases'):
+
+            execute_write(
+                """UPDATE test_cases SET input_params = :private_test_cases WHERE problem_id = :pid and is_hidden= :hidden""",
+                {"pid": problem_id,
+                    "private_test_cases": json.dumps(data.get('private_test_cases')),
+                    "hidden": True,}
+            )
+        _fetch_testcases_from_db.cache_clear()
+        return jsonify({"success": True, "message": "Test cases updated"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/admin/problems/<problem_id>/templates/<language>', methods=['PUT'])
+def admin_update_template(problem_id, language):
+    """Update template, driver, and solution code for a specific language"""
+    try:
+        data = request.get_json()
+        
+        execute_write(
+            """UPDATE code_templates SET 
+               template_code = :t_code, 
+               driver_code = :d_code, 
+               solution_code = :s_code, 
+               function_name = :f_name,
+               return_type = :rtype,
+               input_params = :inp_params,
+               updated_at = CURRENT_TIMESTAMP
+               WHERE problem_id = :pid AND language = :lang""",
+            {
+                "pid": problem_id, "lang": language, "t_code": data.get('template_code'), "d_code": data.get('driver_code'),
+                "s_code": data.get('solution_code'), "f_name": data.get('function_name'), 
+                'rtype':data.get('return_type'), 'inp_params': data.get('input_params')}
+        )
+        
+        _fetch_template_from_db.cache_clear()
+        return jsonify({"success": True, "message": f"{language.capitalize()} template updated"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/admin/problems/<problem_id>', methods=['DELETE'])
+def admin_delete_problem(problem_id):
+    """Delete a problem and its associated data"""
+    try:
+        execute_write("DELETE FROM problems WHERE id = :pid", {"pid": problem_id})
+        
+        # Ensure cache is cleared so deleted templates aren't served
+        _fetch_problems_from_db.cache_clear()
+        
+        return jsonify({"success": True, "message": "Problem deleted"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/', methods=['GET'])
 def index():
     """Root endpoint with available endpoints"""
     return jsonify({
         "message": "CodeIDE Backend API",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "execution_model": "Local (Direct execution via subprocess)",
         "endpoints": {
             "execute": ["/service/execute/code/run", "/service/execute/problems/<id>/run-tests", "/service/execute/problems/<id>/submit"],
