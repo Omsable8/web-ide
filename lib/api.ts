@@ -746,3 +746,280 @@ export async function adminDeleteProblem(problemId: string): Promise<{ success: 
 export const createProblem = adminCreateProblem
 export const updateProblem = adminUpdateProblem
 export const deleteProblem = adminDeleteProblem
+
+// ============================================================================
+// User Analytics Dashboard API (Stub Functions)
+// ============================================================================
+
+import type {
+  UserAnalyticsSummary,
+  StudentDetailedProfile,
+  PlatformStats,
+  DifficultyVelocityData,
+  AIAssistanceData,
+} from './analytics-types'
+
+/**
+ * Fetch global platform statistics (KPIs)
+ * GET /api/analytics/stats
+ * 
+ * Expected response:
+ * {
+ *   success: boolean,
+ *   stats: PlatformStats
+ * }
+ */
+export async function fetchPlatformStats(): Promise<{ success: boolean; stats?: PlatformStats; error?: string }> {
+  console.log('[Analytics API] fetchPlatformStats() called')
+  console.log('[Analytics API] Expected endpoint: GET /api/analytics/stats')
+  
+  // TODO: Replace with actual backend call
+  // const response = await fetch(`${API_BASE_DB_URL}/api/analytics/stats`)
+  // return await response.json()
+  
+  // Placeholder mock data
+  return {
+    success: true,
+    stats: {
+      total_students: 1247,
+      total_submissions: 18432,
+      total_ai_messages: 42891,
+      global_success_rate: 0.73
+    }
+  }
+}
+
+/**
+ * Fetch all users with their summary analytics (paginated)
+ * GET /api/analytics/users?page=1&limit=10&search=&filter=
+ * 
+ * Expected response:
+ * {
+ *   success: boolean,
+ *   users: UserAnalyticsSummary[],
+ *   total: number,
+ *   page: number,
+ *   total_pages: number
+ * }
+ */
+export async function fetchAllUsersAnalytics(
+  page: number = 1,
+  limit: number = 10,
+  search?: string,
+  filter?: string
+): Promise<{ success: boolean; users?: UserAnalyticsSummary[]; total?: number; page?: number; total_pages?: number; error?: string }> {
+  console.log('[Analytics API] fetchAllUsersAnalytics() called')
+  console.log('[Analytics API] Expected endpoint: GET /api/analytics/users')
+  console.log('[Analytics API] Parameters:', { page, limit, search, filter })
+  
+  // TODO: Replace with actual backend call
+  // const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  // if (search) params.append('search', search)
+  // if (filter) params.append('filter', filter)
+  // const response = await fetch(`${API_BASE_DB_URL}/api/analytics/users?${params}`)
+  // return await response.json()
+  
+  // Placeholder mock data
+  const mockUsers: UserAnalyticsSummary[] = [
+    { uid: 'usr_a1b2c3d4e5f6', name: 'Alice Johnson', email: 'alice@university.edu', problems_attempted: 45, problems_solved: 38, total_submissions: 127, total_ai_messages: 89, success_rate: 0.84 },
+    { uid: 'usr_b2c3d4e5f6g7', name: 'Bob Smith', email: 'bob.smith@college.edu', problems_attempted: 32, problems_solved: 21, total_submissions: 94, total_ai_messages: 156, success_rate: 0.66 },
+    { uid: 'usr_c3d4e5f6g7h8', name: 'Carol Williams', email: 'carol.w@tech.edu', problems_attempted: 58, problems_solved: 52, total_submissions: 201, total_ai_messages: 45, success_rate: 0.90 },
+    { uid: 'usr_d4e5f6g7h8i9', name: 'David Brown', email: 'd.brown@campus.edu', problems_attempted: 19, problems_solved: 12, total_submissions: 43, total_ai_messages: 211, success_rate: 0.63 },
+    { uid: 'usr_e5f6g7h8i9j0', name: 'Eva Martinez', email: 'eva.m@school.edu', problems_attempted: 67, problems_solved: 61, total_submissions: 289, total_ai_messages: 34, success_rate: 0.91 },
+    { uid: 'usr_f6g7h8i9j0k1', name: 'Frank Lee', email: 'frank.lee@uni.edu', problems_attempted: 28, problems_solved: 19, total_submissions: 76, total_ai_messages: 123, success_rate: 0.68 },
+    { uid: 'usr_g7h8i9j0k1l2', name: 'Grace Kim', email: 'grace.kim@edu.org', problems_attempted: 41, problems_solved: 35, total_submissions: 112, total_ai_messages: 67, success_rate: 0.85 },
+    { uid: 'usr_h8i9j0k1l2m3', name: 'Henry Chen', email: 'h.chen@university.edu', problems_attempted: 53, problems_solved: 44, total_submissions: 167, total_ai_messages: 98, success_rate: 0.83 },
+    { uid: 'usr_i9j0k1l2m3n4', name: 'Iris Patel', email: 'iris.p@college.edu', problems_attempted: 36, problems_solved: 29, total_submissions: 88, total_ai_messages: 145, success_rate: 0.81 },
+    { uid: 'usr_j0k1l2m3n4o5', name: 'James Wilson', email: 'j.wilson@tech.edu', problems_attempted: 24, problems_solved: 15, total_submissions: 52, total_ai_messages: 187, success_rate: 0.63 },
+  ]
+  
+  return {
+    success: true,
+    users: mockUsers,
+    total: 47,
+    page: page,
+    total_pages: 5
+  }
+}
+
+/**
+ * Fetch detailed profile for a specific student
+ * GET /api/analytics/users/:uid
+ * 
+ * Expected response:
+ * {
+ *   success: boolean,
+ *   profile: StudentDetailedProfile
+ * }
+ */
+export async function fetchStudentDetails(uid: string): Promise<{ success: boolean; profile?: StudentDetailedProfile; error?: string }> {
+  console.log('[Analytics API] fetchStudentDetails() called')
+  console.log('[Analytics API] Expected endpoint: GET /api/analytics/users/:uid')
+  console.log('[Analytics API] UID:', uid)
+  
+  // TODO: Replace with actual backend call
+  // const response = await fetch(`${API_BASE_DB_URL}/api/analytics/users/${uid}`)
+  // return await response.json()
+  
+  // Placeholder mock data
+  return {
+    success: true,
+    profile: {
+      user: {
+        uid,
+        name: 'Alice Johnson',
+        email: 'alice@university.edu',
+        problems_attempted: 45,
+        problems_solved: 38,
+        total_submissions: 127,
+        total_ai_messages: 89,
+        success_rate: 0.84
+      },
+      difficulty_breakdown: {
+        easy: { attempted: 20, solved: 19 },
+        medium: { attempted: 18, solved: 14 },
+        hard: { attempted: 7, solved: 5 }
+      },
+      feature_usage: {
+        debugger_activations: 34,
+        code_runs: 245,
+        code_submissions: 127,
+        hints_used: 2,
+        complexity_analysis: 18
+      },
+      ai_chat_logs: [
+        {
+          id: 'chat_1',
+          problem_id: 'prob_001',
+          problem_title: 'Two Sum',
+          session_start: '2024-01-15T10:30:00Z',
+          messages: [
+            { role: 'user', content: 'How do I approach this problem efficiently?', timestamp: '2024-01-15T10:30:00Z' },
+            { role: 'assistant', content: 'For the Two Sum problem, consider using a hash map to store values you have seen...', timestamp: '2024-01-15T10:30:05Z' },
+            { role: 'user', content: 'What about the time complexity?', timestamp: '2024-01-15T10:31:00Z' },
+            { role: 'assistant', content: 'With a hash map approach, you achieve O(n) time complexity since each lookup is O(1).', timestamp: '2024-01-15T10:31:05Z' },
+          ]
+        },
+        {
+          id: 'chat_2',
+          problem_id: 'prob_002',
+          problem_title: 'Valid Parentheses',
+          session_start: '2024-01-16T14:20:00Z',
+          messages: [
+            { role: 'user', content: 'My code is failing on nested brackets', timestamp: '2024-01-16T14:20:00Z' },
+            { role: 'assistant', content: 'Make sure you are using a stack to track opening brackets. When you encounter a closing bracket...', timestamp: '2024-01-16T14:20:05Z' },
+          ]
+        }
+      ],
+      submission_history: [
+        { id: 'sub_1', problem_id: 'prob_001', problem_title: 'Two Sum', language: 'python', code: 'def twoSum(nums, target):\n    seen = {}\n    for i, n in enumerate(nums):\n        if target - n in seen:\n            return [seen[target-n], i]\n        seen[n] = i', status: 'pass', passed_tests: 5, total_tests: 5, timestamp: '2024-01-15T10:45:00Z' },
+        { id: 'sub_2', problem_id: 'prob_001', problem_title: 'Two Sum', language: 'python', code: 'def twoSum(nums, target):\n    for i in range(len(nums)):\n        for j in range(i+1, len(nums)):\n            if nums[i] + nums[j] == target:\n                return [i, j]', status: 'fail', passed_tests: 3, total_tests: 5, timestamp: '2024-01-15T10:40:00Z' },
+        { id: 'sub_3', problem_id: 'prob_002', problem_title: 'Valid Parentheses', language: 'java', code: 'class Solution {\n    public boolean isValid(String s) {\n        Stack<Character> stack = new Stack<>();\n        // ...\n    }\n}', status: 'pass', passed_tests: 8, total_tests: 8, timestamp: '2024-01-16T14:35:00Z' },
+      ]
+    }
+  }
+}
+
+/**
+ * Fetch problem velocity by difficulty (for grouped bar chart)
+ * GET /api/analytics/charts/velocity
+ * 
+ * Expected response:
+ * {
+ *   success: boolean,
+ *   data: DifficultyVelocityData[]
+ * }
+ */
+export async function fetchDifficultyVelocity(): Promise<{ success: boolean; data?: DifficultyVelocityData[]; error?: string }> {
+  console.log('[Analytics API] fetchDifficultyVelocity() called')
+  console.log('[Analytics API] Expected endpoint: GET /api/analytics/charts/velocity')
+  
+  // TODO: Replace with actual backend call
+  // const response = await fetch(`${API_BASE_DB_URL}/api/analytics/charts/velocity`)
+  // return await response.json()
+  
+  return {
+    success: true,
+    data: [
+      { difficulty: 'Easy', attempted: 892, solved: 756 },
+      { difficulty: 'Medium', attempted: 634, solved: 421 },
+      { difficulty: 'Hard', attempted: 287, solved: 124 }
+    ]
+  }
+}
+
+/**
+ * Fetch average AI assistance per problem (for horizontal bar chart)
+ * GET /api/analytics/charts/ai-assistance
+ * 
+ * Expected response:
+ * {
+ *   success: boolean,
+ *   data: AIAssistanceData[]
+ * }
+ */
+export async function fetchAIAssistanceData(): Promise<{ success: boolean; data?: AIAssistanceData[]; error?: string }> {
+  console.log('[Analytics API] fetchAIAssistanceData() called')
+  console.log('[Analytics API] Expected endpoint: GET /api/analytics/charts/ai-assistance')
+  
+  // TODO: Replace with actual backend call
+  // const response = await fetch(`${API_BASE_DB_URL}/api/analytics/charts/ai-assistance`)
+  // return await response.json()
+  
+  return {
+    success: true,
+    data: [
+      { problem_title: 'Dynamic Programming', avg_ai_messages: 8.4 },
+      { problem_title: 'Graph Traversal', avg_ai_messages: 7.2 },
+      { problem_title: 'Binary Search', avg_ai_messages: 5.1 },
+      { problem_title: 'Two Pointers', avg_ai_messages: 4.3 },
+      { problem_title: 'Hash Tables', avg_ai_messages: 3.8 },
+      { problem_title: 'Arrays', avg_ai_messages: 2.1 },
+    ]
+  }
+}
+
+/**
+ * Export global system CSV
+ * GET /api/analytics/export/system
+ * 
+ * This triggers a CSV download containing all platform-wide metrics.
+ * Console logs what data fields are expected to be included.
+ */
+export function handleGlobalExportCSV(): void {
+  console.log('[Analytics API] handleGlobalExportCSV() called')
+  console.log('[Analytics API] Expected endpoint: GET /api/analytics/export/system')
+  console.log('[Analytics API] Expected CSV columns:')
+  console.log('  - uid, name, email, problems_attempted, problems_solved')
+  console.log('  - total_submissions, total_ai_messages, success_rate')
+  console.log('  - hints_used, debug_activations, complexity_checks')
+  
+  // TODO: Replace with actual download trigger
+  // window.location.href = `${API_BASE_DB_URL}/api/analytics/export/system`
+  
+  alert('CSV export triggered! Check console for expected endpoint details.')
+}
+
+/**
+ * Export individual student CSV ledger
+ * GET /api/analytics/export/user/:uid
+ * 
+ * This triggers a CSV download containing all engagement data for a specific student.
+ */
+export function handleStudentExportCSV(uid: string): void {
+  console.log('[Analytics API] handleStudentExportCSV() called')
+  console.log('[Analytics API] Expected endpoint: GET /api/analytics/export/user/:uid')
+  console.log('[Analytics API] UID:', uid)
+  console.log('[Analytics API] Expected CSV sections:')
+  console.log('  - User profile info')
+  console.log('  - Problem-by-problem breakdown with attempts/solves')
+  console.log('  - Full submission history with timestamps')
+  console.log('  - AI chat message logs')
+  console.log('  - Feature usage statistics')
+  
+  // TODO: Replace with actual download trigger
+  // window.location.href = `${API_BASE_DB_URL}/api/analytics/export/user/${uid}`
+  
+  alert(`Student CSV export triggered for ${uid}! Check console for expected endpoint details.`)
+}
+
