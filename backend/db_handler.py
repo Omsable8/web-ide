@@ -1,10 +1,12 @@
 from functools import lru_cache
 import json
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,Response
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, disconnect
 from config import Config
 from psycopg2.extras import Json
+import csv
+from io import StringIO
 
 from auth_handler import AuthHandler
 from data_logger import DataLogger
@@ -549,6 +551,272 @@ def index():
         }
     })
 
+
+# ============================================================================
+# Analytics Endpoints
+# ============================================================================
+
+@app.route('/api/analytics/stats', methods=['GET'])
+def get_platform_stats():
+    """Returns global KPI statistics for the dashboard."""
+    try:
+        query = """
+            SELECT 
+                (SELECT COUNT(uid) FROM user_profiles) AS total_students,
+                (SELECT COUNT(id) FROM user_code_submissions) AS total_submissions,
+                (SELECT COUNT(id) FROM ai_chat_messages) AS total_ai_messages,
+                (SELECT COALESCE(SUM(CASE WHEN num_fail_tc = 0 THEN 1 ELSE 0 END)::float / NULLIF(COUNT(id), 0), 0) FROM user_code_submissions) AS global_success_rate
+        """
+        rows = execute_read(query)
+        return jsonify({"success": True, "stats": rows[0] if rows else {}})
+    except Exception as e:
+        logger.log("ERROR", f"Failed to fetch platform stats: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/users', methods=['GET'])
+def get_all_users_analytics():
+    """Returns paginated user analytics summaries."""
+    try:
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 10))
+        offset = (page - 1) * limit
+        search = request.args.get('search', '')
+
+        base_query = """
+            FROM user_profiles u
+            LEFT JOIN user_code_submissions s ON u.uid = s.uid
+            WHERE u.name ILIKE :search OR u.email ILIKE :search
+            GROUP BY u.uid, u.name, u.email, u.created_at
+        """
+
+        count_query = f"SELECT COUNT(DISTINCT u.uid) as total {base_query}"
+        total_rows = execute_read(count_query, {"search": f"%{search}%"})
+        total_users = total_rows[0]['total'] if total_rows else 0
+
+        data_query = f"""
+            SELECT 
+                u.uid, u.name, u.email, u.created_at,
+                COUNT(DISTINCT s.pid) AS problems_attempted,
+                COUNT(DISTINCT CASE WHEN s.num_fail_tc = 0 THEN s.pid END) AS problems_solved,
+                COUNT(s.id) AS total_submissions,
+                (SELECT COUNT(id) FROM ai_chat_messages a WHERE a.uid = u.uid) AS total_ai_messages,
+                COALESCE(SUM(CASE WHEN s.num_fail_tc = 0 THEN 1 ELSE 0 END)::float / NULLIF(COUNT(s.id), 0), 0) AS success_rate
+            {base_query}
+            ORDER BY u.created_at DESC
+            LIMIT :limit OFFSET :offset
+        """
+        users = execute_read(data_query, {"search": f"%{search}%", "limit": limit, "offset": offset})
+
+        return jsonify({
+            "success": True, 
+            "users": users, 
+            "total": total_users, 
+            "page": page, 
+            "total_pages": (total_users + limit - 1) // limit
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/users/<uid>', methods=['GET'])
+def get_student_details(uid):
+    """Returns detailed profile, difficulty breakdown, and history for a specific student."""
+    try:
+        # 1. User Summary
+        user_query = """
+            SELECT 
+                u.uid, u.name, u.email,
+                COUNT(DISTINCT s.pid) AS problems_attempted,
+                COUNT(DISTINCT CASE WHEN s.num_fail_tc = 0 THEN s.pid END) AS problems_solved,
+                COUNT(s.id) AS total_submissions,
+                (SELECT COUNT(id) FROM ai_chat_messages a WHERE a.uid = :uid) AS total_ai_messages,
+                COALESCE(SUM(CASE WHEN s.num_fail_tc = 0 THEN 1 ELSE 0 END)::float / NULLIF(COUNT(s.id), 0), 0) AS success_rate
+            FROM user_profiles u
+            LEFT JOIN user_code_submissions s ON u.uid = s.uid
+            WHERE u.uid = :uid
+            GROUP BY u.uid, u.name, u.email
+        """
+        user_summary = execute_read(user_query, {"uid": uid})
+        if not user_summary:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        # 2. Difficulty Breakdown
+        diff_query = """
+            SELECT p.difficulty, 
+                   COUNT(DISTINCT s.pid) as attempted, 
+                   COUNT(DISTINCT CASE WHEN s.num_fail_tc = 0 THEN s.pid END) as solved
+            FROM problems p
+            JOIN user_code_submissions s ON p.id = s.pid
+            WHERE s.uid = :uid
+            GROUP BY p.difficulty
+        """
+        diff_data = execute_read(diff_query, {"uid": uid})
+        difficulty_breakdown = {"easy": {"attempted": 0, "solved": 0}, "medium": {"attempted": 0, "solved": 0}, "hard": {"attempted": 0, "solved": 0}}
+        for row in diff_data:
+            diff_level = row['difficulty'].lower()
+            if diff_level in difficulty_breakdown:
+                difficulty_breakdown[diff_level] = {"attempted": row['attempted'], "solved": row['solved']}
+
+        # 3. Feature Usage
+        feature_query = """
+            SELECT 
+                COALESCE(SUM(debug_btn), 0) AS debugger_activations,
+                COALESCE(SUM(hints), 0) AS hints_used,
+                COALESCE(SUM(performance_analyzer), 0) AS complexity_analysis,
+                (SELECT COUNT(id) FROM user_code_submissions WHERE uid = :uid AND btn = 'test') AS code_runs,
+                (SELECT COUNT(id) FROM user_code_submissions WHERE uid = :uid AND btn = 'submit') AS code_submissions
+            FROM feature_usage
+            WHERE uid = :uid
+        """
+        feature_usage = execute_read(feature_query, {"uid": uid})
+
+        # 4. Submission History
+        sub_query = """
+            SELECT s.id, s.pid AS problem_id, p.title AS problem_title, s.language, s.code, 
+                   CASE WHEN s.error IS NOT NULL THEN 'error' WHEN s.num_fail_tc > 0 THEN 'fail' ELSE 'pass' END as status,
+                   s.num_pass_tc AS passed_tests, (s.num_pass_tc + s.num_fail_tc) AS total_tests, s.submitted_at AS timestamp
+            FROM user_code_submissions s
+            JOIN problems p ON s.pid = p.id
+            WHERE s.uid = :uid
+            ORDER BY s.submitted_at DESC
+        """
+        submission_history = execute_read(sub_query, {"uid": uid})
+
+        # 5. AI Chat Logs (Grouped by Problem)
+        chat_query = """
+            SELECT a.id, a.pid AS problem_id, p.title AS problem_title, 
+                   a.role, a.content, a.created_at AS timestamp
+            FROM ai_chat_messages a
+            JOIN problems p ON a.pid = p.id
+            WHERE a.uid = :uid
+            ORDER BY a.pid, a.created_at ASC
+        """
+        chat_rows = execute_read(chat_query, {"uid": uid})
+        
+        # Group chats logically
+        chat_logs_dict = {}
+        for row in chat_rows:
+            pid = row['problem_id']
+            if pid not in chat_logs_dict:
+                chat_logs_dict[pid] = {
+                    "id": f"session_{pid}",
+                    "problem_id": pid,
+                    "problem_title": row['problem_title'],
+                    "session_start": row['timestamp'],
+                    "messages": []
+                }
+            chat_logs_dict[pid]['messages'].append({
+                "role": row['role'],
+                "content": row['content'],
+                "timestamp": row['timestamp']
+            })
+        ai_chat_logs = list(chat_logs_dict.values())
+
+        profile = {
+            "user": user_summary[0],
+            "difficulty_breakdown": difficulty_breakdown,
+            "feature_usage": feature_usage[0] if feature_usage else {},
+            "ai_chat_logs": ai_chat_logs,
+            "submission_history": submission_history
+        }
+        return jsonify({"success": True, "profile": profile})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/charts/velocity', methods=['GET'])
+def get_difficulty_velocity():
+    """
+    Returns problem attempt and solve velocity grouped by difficulty.
+    """
+    try:
+        # Cast UUIDs to text explicitly to allow string concatenation in PostgreSQL
+        query = """
+            SELECT p.difficulty, 
+                   COUNT(DISTINCT s.pid::text || s.uid::text) AS attempted, 
+                   COUNT(DISTINCT CASE WHEN s.num_fail_tc = 0 THEN s.pid::text || s.uid::text END) AS solved
+            FROM problems p
+            LEFT JOIN user_code_submissions s ON p.id = s.pid
+            GROUP BY p.difficulty
+        """
+        data = execute_read(query)
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/charts/ai-assistance', methods=['GET'])
+def get_ai_assistance_data():
+    """Returns average AI message volume per problem."""
+    try:
+        query = """
+            SELECT p.title AS problem_title, 
+                   COALESCE(AVG(user_msg_counts.msg_count), 0) AS avg_ai_messages
+            FROM problems p
+            LEFT JOIN (
+                SELECT pid, uid, COUNT(id) AS msg_count
+                FROM ai_chat_messages
+                GROUP BY pid, uid
+            ) user_msg_counts ON p.id = user_msg_counts.pid WHERE p.mode='learn'
+            GROUP BY p.id, p.title
+            ORDER BY avg_ai_messages DESC
+        """
+        data = execute_read(query)
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/export/system', methods=['GET'])
+def export_system_csv():
+    """Generates and streams a CSV of global system metrics."""
+    try:
+        query = """
+            SELECT u.uid, u.name, u.email,
+                   COUNT(DISTINCT s.pid) AS problems_attempted,
+                   COUNT(DISTINCT CASE WHEN s.num_fail_tc = 0 THEN s.pid END) AS problems_solved,
+                   COUNT(s.id) AS total_submissions,
+                   (SELECT COUNT(id) FROM ai_chat_messages a WHERE a.uid = u.uid) AS total_ai_messages,
+                   COALESCE(SUM(CASE WHEN s.num_fail_tc = 0 THEN 1 ELSE 0 END)::float / NULLIF(COUNT(s.id), 0), 0) AS success_rate,
+                   COALESCE((SELECT SUM(hints) FROM feature_usage f WHERE f.uid = u.uid), 0) AS hints_used,
+                   COALESCE((SELECT SUM(debug_btn) FROM feature_usage f WHERE f.uid = u.uid), 0) AS debug_activations,
+                   COALESCE((SELECT SUM(performance_analyzer) FROM feature_usage f WHERE f.uid = u.uid), 0) AS complexity_checks
+            FROM user_profiles u
+            LEFT JOIN user_code_submissions s ON u.uid = s.uid
+            GROUP BY u.uid, u.name, u.email
+        """
+        rows = execute_read(query)
+        
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=["uid", "name", "email", "problems_attempted", "problems_solved", "total_submissions", "total_ai_messages", "success_rate", "hints_used", "debug_activations", "complexity_checks"])
+        writer.writeheader()
+        writer.writerows(rows)
+        
+        return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=system_export.csv"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/export/user/<uid>', methods=['GET'])
+def export_user_csv(uid):
+    """Generates and streams a raw CSV ledger for a specific student."""
+    try:
+        query = """
+            SELECT s.submitted_at as timestamp, 'submission' as event_type, p.title as problem, s.language, 
+                   CASE WHEN s.num_fail_tc = 0 THEN 'pass' ELSE 'fail' END as outcome
+            FROM user_code_submissions s JOIN problems p ON s.pid = p.id WHERE s.uid = :uid
+            UNION ALL
+            SELECT a.created_at as timestamp, 'ai_chat' as event_type, p.title as problem, a.role as language, 
+                   'message_sent' as outcome
+            FROM ai_chat_messages a JOIN problems p ON a.pid = p.id WHERE a.uid = :uid
+            ORDER BY timestamp DESC
+        """
+        rows = execute_read(query, {"uid": uid})
+        
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=["timestamp", "event_type", "problem", "language", "outcome"])
+        writer.writeheader()
+        writer.writerows(rows)
+        
+        return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=student_{uid}_export.csv"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
 # ============================================================================
 # Error Handlers
 # ============================================================================
