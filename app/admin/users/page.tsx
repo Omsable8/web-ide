@@ -16,6 +16,8 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import {
   BarChart,
@@ -78,6 +80,9 @@ import {
 } from '@/lib/api'
 
 export default function UserAnalyticsDashboard() {
+  // Theme state
+  const [isDark, setIsDark] = useState(true)
+
   // Platform stats
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
@@ -101,6 +106,24 @@ export default function UserAnalyticsDashboard() {
 
   // Copy UID state
   const [copiedUid, setCopiedUid] = useState<string | null>(null)
+
+  // Initialize theme from document
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'))
+  }, [])
+
+  const toggleTheme = () => {
+    const root = document.documentElement
+    if (root.classList.contains('dark')) {
+      root.classList.remove('dark')
+      setIsDark(false)
+      localStorage.setItem('editorTheme', 'light')
+    } else {
+      root.classList.add('dark')
+      setIsDark(true)
+      localStorage.setItem('editorTheme', 'dark')
+    }
+  }
 
   // Load initial data
   useEffect(() => {
@@ -212,6 +235,13 @@ export default function UserAnalyticsDashboard() {
               <Download className="mr-2 h-4 w-4" />
               Download System CSV
             </Button>
+            <button
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-md border border-border bg-card hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
           </div>
         </div>
       </header>

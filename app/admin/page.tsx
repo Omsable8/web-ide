@@ -5,22 +5,24 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Home,
-  Loader2,
-  Search,
-  Settings,
-  ChevronDown,
+import { 
+  Home, 
+  Loader2, 
+  Search, 
+  Settings, 
+  ChevronDown, 
   ChevronRight,
   Plus,
   Trash2,
   AlertTriangle,
-  Save
+  Save,
+  Sun,
+  Moon
 } from 'lucide-react'
-import {
-  getAdminProblems,
-  getAdminProblemDetail,
-  AdminProblem,
+import { 
+  getAdminProblems, 
+  getAdminProblemDetail, 
+  AdminProblem, 
   AdminProblemDetail,
   AdminCodeTemplate,
   adminCreateProblem,
@@ -108,7 +110,10 @@ export default function AdminPage() {
   const [loadingLearn, setLoadingLearn] = useState(true)
   const [loadingCompete, setLoadingCompete] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-
+  
+  // Theme state
+  const [isDark, setIsDark] = useState(true)
+  
   // Popup state
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null)
   const [editableDetail, setEditableDetail] = useState<EditableProblemDetail | null>(null)
@@ -123,7 +128,7 @@ export default function AdminPage() {
   const [problemToDelete, setProblemToDelete] = useState<Problem | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-
+  
   // Track which section is being updated
   type UpdateType = 'create' | 'problem' | 'hints' | 'testcases' | 'template'
   const [updateType, setUpdateType] = useState<UpdateType>('problem')
@@ -133,6 +138,24 @@ export default function AdminPage() {
   // Collapsible sections
   const [learnExpanded, setLearnExpanded] = useState(true)
   const [competeExpanded, setCompeteExpanded] = useState(true)
+
+  // Initialize theme from document
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'))
+  }, [])
+
+  const toggleTheme = () => {
+    const root = document.documentElement
+    if (root.classList.contains('dark')) {
+      root.classList.remove('dark')
+      setIsDark(false)
+      localStorage.setItem('editorTheme', 'light')
+    } else {
+      root.classList.add('dark')
+      setIsDark(true)
+      localStorage.setItem('editorTheme', 'dark')
+    }
+  }
 
   useEffect(() => {
     fetchAllProblems()
@@ -181,7 +204,7 @@ export default function AdminPage() {
           solution_code: t.solution_code || '',
           input_params: typeof t.input_params === 'string' ? t.input_params : JSON.stringify(t.input_params || [])
         }))
-
+        
         setEditableDetail({
           problem: {
             id: response.data.problem.id,
@@ -232,7 +255,7 @@ export default function AdminPage() {
 
   const confirmDelete = async () => {
     if (!problemToDelete) return
-
+    
     setIsDeleting(true)
     try {
       const response = await adminDeleteProblem(problemToDelete.id)
@@ -263,7 +286,7 @@ export default function AdminPage() {
 
     setIsUpdating(true)
     setUpdatingSection(updateType === 'template' ? `template-${templateToUpdate}` : updateType)
-
+    
     try {
       if (updateType === 'create' || isNewProblem) {
         // Create new problem with all data
@@ -399,7 +422,7 @@ export default function AdminPage() {
   }
 
   const filterProblems = (problems: Problem[]) => {
-    return problems.filter((p) =>
+    return problems.filter((p) => 
       p.title.toLowerCase().includes(searchQuery.toLowerCase())
     )
   }
@@ -417,14 +440,14 @@ export default function AdminPage() {
     }
   }
 
-  const ProblemsList = ({
-    problems,
-    loading,
-    title,
-    expanded,
+  const ProblemsList = ({ 
+    problems, 
+    loading, 
+    title, 
+    expanded, 
     onToggle,
     mode
-  }: {
+  }: { 
     problems: Problem[]
     loading: boolean
     title: string
@@ -433,7 +456,7 @@ export default function AdminPage() {
     mode: 'learn' | 'compete'
   }) => (
     <div className="mb-6">
-      <div
+      <div 
         className="flex items-center gap-2 cursor-pointer p-3 bg-card border border-border rounded-t-lg hover:bg-accent/5 transition"
         onClick={onToggle}
       >
@@ -447,10 +470,10 @@ export default function AdminPage() {
           {problems.length} problems
         </Badge>
         <div className="ml-auto">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1"
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="gap-1" 
             onClick={(e) => {
               e.stopPropagation()
               handleAddProblem(mode)
@@ -461,7 +484,7 @@ export default function AdminPage() {
           </Button>
         </div>
       </div>
-
+      
       {expanded && (
         <div className="bg-card border border-t-0 border-border rounded-b-lg overflow-hidden">
           {loading ? (
@@ -482,8 +505,8 @@ export default function AdminPage() {
               {/* Table Body */}
               {filterProblems(problems).length > 0 ? (
                 filterProblems(problems).map((problem) => (
-                  <div
-                    key={problem.id}
+                  <div 
+                    key={problem.id} 
                     className="grid grid-cols-12 gap-4 p-4 border-b border-border hover:bg-accent/5 transition cursor-pointer items-center"
                     onClick={() => handleProblemClick(problem)}
                   >
@@ -498,9 +521,9 @@ export default function AdminPage() {
                     <div className="col-span-2 text-muted-foreground text-sm">{problem.category}</div>
                     <div className="col-span-1 text-muted-foreground text-sm">{problem.acceptance_rate || 0}%</div>
                     <div className="col-span-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={(e) => handleDeleteClick(e, problem)}
                       >
@@ -542,9 +565,13 @@ export default function AdminPage() {
             <Link href="/compete" className="text-foreground hover:text-accent transition text-sm">
               Compete
             </Link>
-            <Link href="/compete" className="text-foreground hover:text-accent transition text-sm">
-              Compete
-            </Link>
+            <button
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-md border border-border bg-card hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
           </nav>
         </div>
       </header>
@@ -566,7 +593,7 @@ export default function AdminPage() {
         </div>
 
         {/* Learn Problems Section */}
-        <ProblemsList
+        <ProblemsList 
           problems={learnProblems}
           loading={loadingLearn}
           title="Learn Mode Problems"
@@ -576,7 +603,7 @@ export default function AdminPage() {
         />
 
         {/* Compete Problems Section */}
-        <ProblemsList
+        <ProblemsList 
           problems={competeProblems}
           loading={loadingCompete}
           title="Compete Mode Problems"
@@ -593,7 +620,7 @@ export default function AdminPage() {
           <DialogTitle className="sr-only">
             {isNewProblem ? `New Problem — ${currentMode === 'learn' ? 'Learn' : 'Compete'} Mode` : `Edit Problem — ${editableDetail?.problem.title || 'Untitled'}`}
           </DialogTitle>
-
+          
           {/* Compact Header with Title and ID */}
           <div className="px-6 py-3 border-b border-border bg-muted/30 shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -636,7 +663,7 @@ export default function AdminPage() {
             </div>
           ) : editableDetail ? (
             <div className="flex-1 grid grid-cols-4 divide-x divide-border overflow-hidden">
-
+              
               {/* Column 1: Problem Metadata */}
               <div className="flex flex-col h-full overflow-hidden">
                 <div className="px-5 py-3 bg-muted/50 border-b border-border shrink-0">
@@ -843,17 +870,17 @@ export default function AdminPage() {
               Confirm {updateType === 'create' || isNewProblem ? 'Creation' : 'Update'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {updateType === 'create' || isNewProblem
+              {updateType === 'create' || isNewProblem 
                 ? 'Are you sure you want to create this new problem? This will add the problem along with all hints, test cases, and code templates to the database.'
                 : updateType === 'problem'
-                  ? 'Are you sure you want to update the problem metadata? This will modify the title, description, difficulty, category, topic, examples, constraints, and complexity fields.'
-                  : updateType === 'hints'
-                    ? 'Are you sure you want to update the hints? This will replace all existing hints with the current hints.'
-                    : updateType === 'testcases'
-                      ? 'Are you sure you want to update the test cases? This will modify both public and private test cases.'
-                      : updateType === 'template'
-                        ? `Are you sure you want to update the ${templateToUpdate.toUpperCase()} template? This will modify the template code, driver code, solution code, and related fields for this language.`
-                        : 'Are you sure you want to save these changes?'
+                ? 'Are you sure you want to update the problem metadata? This will modify the title, description, difficulty, category, topic, examples, constraints, and complexity fields.'
+                : updateType === 'hints'
+                ? 'Are you sure you want to update the hints? This will replace all existing hints with the current hints.'
+                : updateType === 'testcases'
+                ? 'Are you sure you want to update the test cases? This will modify both public and private test cases.'
+                : updateType === 'template'
+                ? `Are you sure you want to update the ${templateToUpdate.toUpperCase()} template? This will modify the template code, driver code, solution code, and related fields for this language.`
+                : 'Are you sure you want to save these changes?'
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -880,8 +907,8 @@ export default function AdminPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
+            <AlertDialogAction 
+              onClick={confirmDelete} 
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
