@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Code2, BookOpen, Zap, LogOut, User, Sun, Moon } from 'lucide-react'
+import { Code2, BookOpen, Zap, LogOut, User, Sun, Moon, Settings } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 
 export default function Dashboard() {
-  const { user, logout } = useAuth()
+  const { user, isAdmin, logout } = useAuth()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
   const [isDark, setIsDark] = useState(true)
@@ -60,6 +60,15 @@ export default function Dashboard() {
                 <Link href="/learn" className="text-foreground hover:text-accent transition">Learn</Link>
                 <Link href="/code" className="text-foreground hover:text-accent transition">Practice</Link>
                 <Link href="/compete" className="text-foreground hover:text-accent transition">Compete</Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-1.5 text-sm font-medium text-accent border border-accent/40 rounded-md px-3 py-1 hover:bg-accent/10 transition-colors"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    Admin Panel
+                  </Link>
+                )}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <User className="w-4 h-4" />

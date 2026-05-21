@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { AdminProtectedRoute } from '@/components/admin-protected-route'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -543,6 +544,7 @@ export default function AdminPage() {
   )
 
   return (
+    <AdminProtectedRoute>
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
@@ -918,5 +920,6 @@ export default function AdminPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </AdminProtectedRoute>
   )
 }

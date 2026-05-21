@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, isAdmin } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,7 +25,10 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/learn')
+      // isAdmin is set synchronously inside login() before it resolves,
+      // so we read it from localStorage to decide the redirect destination.
+      const adminFlag = localStorage.getItem('isAdmin') === 'true'
+      router.push(adminFlag ? '/admin' : '/learn')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

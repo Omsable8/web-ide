@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { checkAdminStatus } from '@/lib/api'
 
 interface User {
   uid: string
@@ -10,6 +11,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null
+  isAdmin: boolean
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
@@ -20,17 +22,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load user from localStorage on mount
+  // Load user from localStorage on mount, then check admin status
   useEffect(() => {
     const storedUser = localStorage.getItem('user')
+    const storedIsAdmin = localStorage.getItem('isAdmin') === 'true'
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser))
+        const parsed = JSON.parse(storedUser)
+        setUser(parsed)
+        // Use cached admin status immediately, then re-verify in background
+        setIsAdmin(storedIsAdmin)
+        checkAdminStatus(parsed.uid).then((result) => {
+          setIsAdmin(result)
+          localStorage.setItem('isAdmin', String(result))
+        })
       } catch (error) {
         console.error('Failed to parse stored user:', error)
         localStorage.removeItem('user')
+        localStorage.removeItem('isAdmin')
       }
     }
     setIsLoading(false)
@@ -45,15 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       })
 
-      if (!response.ok) {
-        throw new Error('Login failed')
-      }
+      if (!response.ok) throw new Error('Login failed')
 
       const data = await response.json()
 
-      // 1. Check if the request was successful based on your Flask response
       if (data.success && data.user) {
-        const innerUser = data.user // To make it cleaner
+        const innerUser = data.user
 
         const userData: User = {
           uid: innerUser.uid,
@@ -61,23 +70,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: innerUser.email,
         }
 
-        // 2. Update state
-        setUser(userData)
+        // Check admin status before resolving
+        const adminResult = await checkAdminStatus(userData.uid)
 
-        // 3. Update LocalStorage
+        setUser(userData)
+        setIsAdmin(adminResult)
+
         localStorage.setItem('user', JSON.stringify(userData))
         localStorage.setItem('uid', innerUser.uid)
-
-        console.log("Login successful, storage updated.")
-      } 
-      else {
-        console.error("Login failed or user data missing:", data)
+        localStorage.setItem('isAdmin', String(adminResult))
+      } else {
+        console.error('Login failed or user data missing:', data)
       }
-    }
-    finally {
+    } finally {
       setIsLoading(false)
     }
   }
+
   const signup = async (name: string, email: string, password: string) => {
     setIsLoading(true)
     try {
@@ -87,14 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ name, email, password }),
       })
 
-      if (!response.ok) {
-        throw new Error('Signup failed')
-      }
+      if (!response.ok) throw new Error('Signup failed')
 
       const data = await response.json()
-      // 1. Check if the request was successful based on your Flask response
+
       if (data.success && data.user) {
-        const innerUser = data.user // To make it cleaner
+        const innerUser = data.user
 
         const userData: User = {
           uid: innerUser.uid,
@@ -102,17 +109,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: innerUser.email,
         }
 
-        // 2. Update state
+        // New signups are never admins
         setUser(userData)
+        setIsAdmin(false)
 
-        // 3. Update LocalStorage
         localStorage.setItem('user', JSON.stringify(userData))
         localStorage.setItem('uid', innerUser.uid)
-
-        console.log("Login successful, storage updated.")
-      } 
-      else {
-        console.error("Login failed or user data missing:", data)
+        localStorage.setItem('isAdmin', 'false')
+      } else {
+        console.error('Signup failed or user data missing:', data)
       }
     } finally {
       setIsLoading(false)
@@ -121,12 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null)
+    setIsAdmin(false)
     localStorage.removeItem('user')
     localStorage.removeItem('uid')
+    localStorage.removeItem('isAdmin')
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, isLoading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   )

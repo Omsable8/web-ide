@@ -21,6 +21,7 @@ CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
 
 auth = AuthHandler() # No client needed anymore
+ADMIN_WHITELIST = ["b7fa8d3e-10f5-4b2c-9624-7ef547ac86c5"]
 
 # --- Cached Helper Functions ---
 LRU_CACHE_SIZE = 40  # Adjust based on expected load and memory constraints
@@ -208,7 +209,10 @@ def require_auth(f):
     return decorated_function
 
 
-
+@app.route('/api/auth/check-admin')
+def check_admin():
+    uid = request.args.get('uid', '')
+    return jsonify({ 'success': True, 'is_admin': uid in ADMIN_WHITELIST })
     
 @app.route('/api/features/update', methods=['POST'])
 def store_features_usage():

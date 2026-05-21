@@ -841,3 +841,24 @@ export function handleGlobalExportCSV(): void {
 export function handleStudentExportCSV(uid: string): void {
   window.location.href = `${API_BASE_DB_URL}/api/analytics/export/user/${uid}`;
 }
+
+// ============================================================================
+// Admin Auth API
+// ============================================================================
+
+/**
+ * Check if a user is an admin.
+ * GET /api/auth/check-admin?uid=<uid>
+ *
+ * Expected backend response: { success: boolean, is_admin: boolean }
+ */
+export async function checkAdminStatus(uid: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_DB_URL}/api/auth/check-admin?uid=${encodeURIComponent(uid)}`)
+    if (!response.ok) return false
+    const data = await response.json()
+    return data.success === true && data.is_admin === true
+  } catch {
+    return false
+  }
+}

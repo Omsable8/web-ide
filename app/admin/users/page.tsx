@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { AdminProtectedRoute } from '@/components/admin-protected-route'
 import {
   Users,
   FileCode,
@@ -217,6 +218,7 @@ export default function UserAnalyticsDashboard() {
   const pieColors = ['#10b981', '#f59e0b', '#ef4444'] // emerald, amber, crimson
 
   return (
+    <AdminProtectedRoute>
     <div className="min-h-screen bg-background">
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -743,5 +745,6 @@ export default function UserAnalyticsDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+    </AdminProtectedRoute>
   )
 }
