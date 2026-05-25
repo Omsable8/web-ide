@@ -388,9 +388,8 @@ export default function UserAnalyticsDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Students</SelectItem>
-                  <SelectItem value="high_performer">High Performers</SelectItem>
-                  <SelectItem value="needs_help">Needs Help</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="learn">Learn Mode Students</SelectItem>
+                  <SelectItem value="compete">Compete Mode Students</SelectItem>
                 </SelectContent>
               </Select>
             </div>

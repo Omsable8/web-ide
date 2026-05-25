@@ -788,6 +788,7 @@ export async function fetchAllUsersAnalytics(
     const response = await fetch(`${API_BASE_DB_URL}/api/analytics/users?${params}`);
     return await response.json();
   } catch (error) {
+    console.log('error: ',error)
     return { success: false, error: String(error) };
   }
 }

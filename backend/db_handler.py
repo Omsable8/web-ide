@@ -585,16 +585,17 @@ def get_all_users_analytics():
         limit = int(request.args.get('limit', 10))
         offset = (page - 1) * limit
         search = request.args.get('search', '')
+        filter = request.args.get('filter','')
 
         base_query = """
             FROM user_profiles u
             LEFT JOIN user_code_submissions s ON u.uid = s.uid
-            WHERE u.name ILIKE :search OR u.email ILIKE :search
+            WHERE (u.name ILIKE :search OR u.email ILIKE :search) AND (s.pid in (SELECT id FROM problems where mode ILIKE :filter))
             GROUP BY u.uid, u.name, u.email, u.created_at
         """
 
-        count_query = f"SELECT COUNT(DISTINCT u.uid) as total {base_query}"
-        total_rows = execute_read(count_query, {"search": f"%{search}%"})
+        count_query = f"SELECT COUNT(u.uid) as total {base_query}"
+        total_rows = execute_read(count_query, {"search": f"%{search}%", "filter":f"%{filter}%"})
         total_users = total_rows[0]['total'] if total_rows else 0
 
         data_query = f"""
@@ -609,7 +610,7 @@ def get_all_users_analytics():
             ORDER BY u.created_at DESC
             LIMIT :limit OFFSET :offset
         """
-        users = execute_read(data_query, {"search": f"%{search}%", "limit": limit, "offset": offset})
+        users = execute_read(data_query, {"search": f"%{search}%", "filter":f"%{filter}%", "limit": limit, "offset": offset})
 
         return jsonify({
             "success": True, 
