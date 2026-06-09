@@ -1,8 +1,6 @@
 import subprocess
 import tempfile
 import os
-import sys
-from pathlib import Path
 import traceback
 import judge0
 import json

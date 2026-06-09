@@ -5,7 +5,6 @@ Add these to your existing db_handler.py file
 import bcrypt
 import secrets
 from database import execute_read, execute_write
-from datetime import datetime
 from print_log import Logger
 logger = Logger()
 class AuthHandler:

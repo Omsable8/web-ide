@@ -3,7 +3,6 @@ Python Debug Adapter using debugpy
 Extends BaseDebugAdapter with Python-specific behavior
 """
 import subprocess
-import sys
 from typing import Optional
 from base_debug_adapter import BaseDebugAdapter
 from print_log import Logger

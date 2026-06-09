@@ -7,32 +7,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { 
-  Home, 
-  Loader2, 
-  Search, 
-  Settings, 
-  ChevronDown, 
-  ChevronRight,
-  Plus,
-  Trash2,
-  AlertTriangle,
-  Save,
-  Sun,
-  Moon
+  Home, Loader2, Search, Settings, 
+  ChevronDown, ChevronRight,Plus,Trash2,
+  AlertTriangle,Save,Sun,Moon, X
 } from 'lucide-react'
 import { 
-  getAdminProblems, 
-  getAdminProblemDetail, 
-  AdminProblem, 
-  AdminProblemDetail,
-  AdminCodeTemplate,
-  adminCreateProblem,
-  adminUpdateProblem,
-  adminUpdateHints,
-  adminUpdateTestCases,
-  adminUpdateTemplate,
-  adminDeleteProblem
+  getAdminProblems,getAdminProblemDetail,AdminProblem, 
+  AdminProblemDetail,AdminCodeTemplate,adminCreateProblem,
+  adminUpdateProblem,adminUpdateHints,adminUpdateTestCases,
+  adminUpdateTemplate,adminDeleteProblem, 
+  deleteView, fetchAllViews, createOrUpdateView
 } from '@/lib/api'
+import { AdminViewManager } from '@/components/Admin-view-manager'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -107,11 +93,29 @@ const getEmptyProblemDetail = (mode: 'learn' | 'compete'): EditableProblemDetail
 
 export default function AdminPage() {
   const [learnProblems, setLearnProblems] = useState<Problem[]>([])
-  const [competeProblems, setCompeteProblems] = useState<Problem[]>([])
   const [loadingLearn, setLoadingLearn] = useState(true)
-  const [loadingCompete, setLoadingCompete] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   
+  // const [loadingCompete, setLoadingCompete] = useState(true)
+  // const [competeProblems, setCompeteProblems] = useState<Problem[]>([])
+  /** State for dynamic compete views */
+  const [competeViews, setCompeteViews] = useState<Record<string, Problem[]>>({});
+  const [loadingViews, setLoadingViews] = useState(true);
+  const [expandedViews, setExpandedViews] = useState<Record<string, boolean>>({});
+  // State for the view modal
+  const [isViewManagerModalOpen, setIsViewManagerModalOpen] = useState(false);
+  const [editingViewName, setEditingViewName] = useState<string | null>(null);
+
+  // Function to open the modal (used by both Create and Edit buttons)
+  const openViewManagerModal = (viewName: string | null) => {
+    setEditingViewName(viewName);
+    setIsViewManagerModalOpen(true);
+  };
+
+  const closeViewManagerModal = () => {
+    setIsViewManagerModalOpen(false);
+    setEditingViewName(null);
+  };
   // Theme state
   const [isDark, setIsDark] = useState(true)
   
@@ -175,18 +179,54 @@ export default function AdminPage() {
       setLoadingLearn(false)
     }
 
-    setLoadingCompete(true)
-    try {
-      const competeResponse = await getAdminProblems('compete')
-      if (competeResponse.success && competeResponse.problems) {
-        setCompeteProblems(competeResponse.problems)
-      }
-    } catch (error) {
-      console.error('Failed to fetch compete problems:', error)
-    } finally {
-      setLoadingCompete(false)
-    }
+    // setLoadingCompete(true)
+    // try {
+    //   const competeResponse = await getAdminProblems('compete')
+    //   if (competeResponse.success && competeResponse.problems) {
+    //     setCompeteProblems(competeResponse.problems)
+    //   }
+    // } catch (error) {
+    //   console.error('Failed to fetch compete problems:', error)
+    // } finally {
+    //   setLoadingCompete(false)
+    // }
   }
+  /** Fetch all views from the database */
+  const loadViews = async () => {
+      setLoadingViews(true);
+      try {
+          const res = await fetchAllViews();
+          if (res.success) {
+              setCompeteViews(res.data);
+              
+              // Auto-expand all fetched views by default
+              const initialExpandedState: Record<string, boolean> = {};
+              Object.keys(res.data).forEach(viewName => {
+                  initialExpandedState[viewName] = true;
+              });
+              setExpandedViews(initialExpandedState);
+          }
+      } catch (err) {
+          console.error("Failed to load views", err);
+      } finally {
+          setLoadingViews(false);
+      }
+  };
+
+  /** Toggle specific view expansion */
+  const toggleViewExpanded = (viewName: string) => {
+      setExpandedViews(prev => ({
+          ...prev,
+          [viewName]: !prev[viewName]
+      }));
+  };
+
+  /** Handle view deletion */
+  const handleDeleteView = async (viewName: string) => {
+      if (!confirm(`Delete view ${viewName}?`)) return;
+      await deleteView(viewName);
+      loadViews();
+  };
 
   const handleProblemClick = async (problem: Problem) => {
     setSelectedProblem(problem)
@@ -447,14 +487,14 @@ export default function AdminPage() {
     title, 
     expanded, 
     onToggle,
-    mode
+    headerActions
   }: { 
     problems: Problem[]
     loading: boolean
     title: string
     expanded: boolean
     onToggle: () => void
-    mode: 'learn' | 'compete'
+    headerActions?: React.ReactNode
   }) => (
     <div className="mb-6">
       <div 
@@ -470,6 +510,10 @@ export default function AdminPage() {
         <Badge variant="secondary" className="ml-2">
           {problems.length} problems
         </Badge>
+        {/* Render custom actions here */}
+        <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+          {headerActions}
+        </div>
         <div className="ml-auto">
           <Button 
             size="sm" 
@@ -477,7 +521,7 @@ export default function AdminPage() {
             className="gap-1" 
             onClick={(e) => {
               e.stopPropagation()
-              handleAddProblem(mode)
+              handleAddProblem('learn')
             }}
           >
             <Plus className="w-4 h-4" />
@@ -580,41 +624,91 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search problems..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-card border border-border focus:outline-none focus:ring-2 focus:ring-accent"
-            />
+          
+          <div className="flex justify-between items-center mb-6">
+              {/* Search */}
+              <div className="relative max-w-md w-full">
+                  <Search className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
+                  <input
+                      type="text"
+                      placeholder="Search problems..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-lg bg-card border border-border focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+              </div>
+
+              {/* Global Action: Create View */}
+              <Button onClick={() => openViewManagerModal(null)} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Create Contest / View
+              </Button>
+          </div>
+
+          {/* Learn Problems Section */}
+          <ProblemsList 
+              problems={learnProblems}
+              loading={loadingLearn}
+              title="Learn Mode Problems"
+              expanded={learnExpanded}
+              onToggle={() => setLearnExpanded(!learnExpanded)}
+          />
+
+          {/* Dynamic Compete Views */}
+          {Object.entries(competeViews).map(([viewName, problems]) => (
+              <ProblemsList 
+                  key={viewName}
+                  problems={problems}
+                  loading={loadingViews}
+                  title={`Contest: ${viewName.replace('compete_', '')}`}
+                  expanded={expandedViews[viewName] || false}
+                  onToggle={() => toggleViewExpanded(viewName)}
+                  headerActions={
+                      <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openViewManagerModal(viewName)}>
+                              Edit View
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleDeleteView(viewName)}>
+                              Delete View
+                          </Button>
+                      </div>
+                  }
+              />
+          ))}
+      </main>
+      
+      {/* View Manager Modal Overlay */}
+      {isViewManagerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col rounded-xl shadow-lg border border-border relative">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-border">
+              <h2 className="text-xl font-bold">
+                {editingViewName ? `Edit Contest: ${editingViewName.replace('compete_', '')}` : 'Create New Contest / View'}
+              </h2>
+              <button 
+                onClick={closeViewManagerModal}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" /> 
+              </button>
+            </div>
+
+            {/* Modal Content - Scrollable */}
+            <div className="p-6 overflow-y-auto">
+              <AdminViewManager 
+                allProblems={learnProblems} 
+                existingViewName={editingViewName}
+                existingProblems={editingViewName ? competeViews[editingViewName] : []}
+                onClose={closeViewManagerModal}
+                refreshViews={loadViews}
+              />
+            </div>
+
           </div>
         </div>
-
-        {/* Learn Problems Section */}
-        <ProblemsList 
-          problems={learnProblems}
-          loading={loadingLearn}
-          title="Learn Mode Problems"
-          expanded={learnExpanded}
-          onToggle={() => setLearnExpanded(!learnExpanded)}
-          mode="learn"
-        />
-
-        {/* Compete Problems Section */}
-        <ProblemsList 
-          problems={competeProblems}
-          loading={loadingCompete}
-          title="Compete Mode Problems"
-          expanded={competeExpanded}
-          onToggle={() => setCompeteExpanded(!competeExpanded)}
-          mode="compete"
-        />
-      </main>
-
+      )}
       {/* Problem Detail/Edit Dialog - 4 Column Layout */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-[99vw] w-[99vw] h-[92vh] p-0 overflow-hidden flex flex-col" showCloseButton={false}>

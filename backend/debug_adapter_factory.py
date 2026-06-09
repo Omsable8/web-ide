@@ -9,8 +9,8 @@ from enum import Enum
 
 from base_debug_adapter import BaseDebugAdapter
 from python_debug_adapter import PythonDebugAdapter, PythonDebugAdapterWithInput
-from java_debug_adapter import JavaDebugAdapter, JavaDebugAdapterHelper
-from cpp_debug_adapter import CppDebugAdapter, CppDebugAdapterHelper
+from java_debug_adapter import JavaDebugAdapterHelper
+from cpp_debug_adapter import CppDebugAdapterHelper
 from print_log import Logger
 logger = Logger(False)
 

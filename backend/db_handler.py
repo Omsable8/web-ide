@@ -2,12 +2,11 @@ from functools import lru_cache
 import json
 from flask import Flask, request, jsonify,Response
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit, disconnect
 from config import Config
 from psycopg2.extras import Json
 import csv
 from io import StringIO
-
+import re
 from auth_handler import AuthHandler
 from data_logger import DataLogger
 from database import execute_read, execute_write
@@ -61,9 +60,12 @@ def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
     logger.log("CACHE MISS", f"Fetching problems with difficulty={difficulty}, category={category}")
     
     # Start with a base query
-    query = "SELECT id, title, description, difficulty, category, topic, examples, constraints, time_complexity, space_complexity, mode FROM problems WHERE mode=:mode"
     params = {'mode': mode} if mode else {}
-    
+    if mode == 'learn': 
+        query = "SELECT id, title, description, difficulty, category, topic, examples, constraints, time_complexity, space_complexity, mode FROM problems WHERE mode=:mode"
+    else: # WHEN MODE IS NOT LEARN IT IS A COMPETE WHICH IS A CUSTOM PROBLEMS TABLE VIEW.
+        query = f"SELECT id, title, description, difficulty, category, topic, examples, constraints, time_complexity, space_complexity, mode FROM {mode} WHERE 1=1"
+        
     # Dynamically append filters
     if difficulty:
         query += " AND difficulty = :diff"
@@ -80,7 +82,6 @@ def _fetch_problems_from_db(difficulty=None, category=None,mode=None):
 def _fetch_problem_from_db(problem_id):
     logger.log("CACHE MISS", f"Fetching problem {problem_id}")
     rows = execute_read("SELECT * FROM problems WHERE id = :pid", {"pid": problem_id})
-    # Supabase returns {data: ...}, so we mock that structure to keep API consistent
     return {"data": rows[0] if rows else None}
 
 
@@ -242,8 +243,6 @@ def store_features_usage():
 def get_problems():
     """Fetch all DSA problems with optional filters"""
     try:
-        
-        
         # Get query parameters for filtering
         difficulty = request.args.get('difficulty')
         category = request.args.get('category')
@@ -335,20 +334,12 @@ def get_test_cases(problem_id):
         logger.log("ERROR", f"Get test cases failed: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-
-
-# ============================================================================
-# Code Templates Endpoints
-# ============================================================================
-
 @app.route('/api/problems/<problem_id>/template', methods=['GET'])
 def get_template(problem_id):
     """Fetch code template for a specific language"""
     try:
         
         language = request.args.get('language', 'python')
-        
-        
         template = _fetch_template_from_db(problem_id, language)
         
         if not template['data']:
@@ -537,6 +528,72 @@ def admin_delete_problem(problem_id):
         _fetch_problems_from_db.cache_clear()
         
         return jsonify({"success": True, "message": "Problem deleted"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/views', methods=['POST'])
+def admin_create_view():
+    """Create or update a view from problems table for compete mode"""
+    try:
+        data = request.get_json() or {}
+        raw_name = data.get('name', '')            
+        view_name = 'compete_' + raw_name
+        safe_view_name = re.sub(r'[^a-zA-Z0-9_]', '_', view_name)
+        # Ensure problem_ids is handled as a list/iterable
+        problem_ids = data.get('problem_ids', [])
+        # Drop the old view if it exists to allow full updates
+        execute_write(f"DROP VIEW IF EXISTS {safe_view_name}")        
+        
+        # Create the new view fresh
+        postgres_array_string = "{" + ",".join(problem_ids) + "}"
+        
+        query = f"CREATE VIEW {safe_view_name} AS SELECT * FROM problems WHERE id = ANY(:pids)"
+        
+        execute_write(query,{"pids": postgres_array_string})
+        
+        return jsonify({"success": True, "message": "View created/updated successfully"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/views', methods=['DELETE'])
+def admin_delete_view():
+    """Delete the given view"""
+    try:
+        data = request.get_json() or {}
+        view_name = data.get('name', '')            
+        
+        # Drop the old view if it exists to allow full updates
+        execute_write(f"DROP VIEW IF EXISTS {view_name}")        
+        
+        return jsonify({"success": True, "message": "View Deleted successfully"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/views', methods=['GET'])
+def get_all_views_data():
+    """Fetch all compete views and their underlying tabular data"""
+    try:
+        # 1. Fetch all view names matching your prefix
+        view_names_query = """
+            SELECT table_name 
+            FROM information_schema.views 
+            WHERE table_schema = 'public' 
+              AND table_name LIKE 'compete_%';
+        """
+        views_list = execute_read(view_names_query)
+        
+        # 2. Extract raw strings from the list of dicts: e.g., ['compete_contest1', ...]
+        view_names = [row['table_name'] for row in views_list]
+        
+        # 3. Loop through views and populate the payload using execute_read
+        views_payload = {}
+        for v_name in view_names:
+            views_payload[v_name] = execute_read(f"SELECT * FROM {v_name}")
+                
+        return jsonify({"success": True, "data": views_payload})
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

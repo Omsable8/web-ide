@@ -550,10 +550,7 @@ export interface AdminProblemDetail {
   code_templates: AdminCodeTemplate[]
 }
 
-/**
- * Get all problems for admin (both learn and compete modes)
- * TODO: Replace with actual backend call
- */
+
 export async function getAdminProblems(mode: 'learn' | 'compete'): Promise<{ success: boolean; problems?: AdminProblem[]; error?: string }> {
   // Placeholder: Use existing getProblems endpoint
   try {
@@ -565,11 +562,6 @@ export async function getAdminProblems(mode: 'learn' | 'compete'): Promise<{ suc
   }
 }
 
-/**
- * Get full problem details for admin including hints, test cases, and templates.
- * Templates are fetched per-language using the existing /template?language= endpoint.
- * TODO: Replace with a single admin endpoint when backend is ready.
- */
 export async function getAdminProblemDetail(problemId: string): Promise<{ success: boolean; data?: AdminProblemDetail; error?: string }> {
   const SUPPORTED_LANGUAGES = ['java', 'python', 'cpp']
 
@@ -747,8 +739,39 @@ export const createProblem = adminCreateProblem
 export const updateProblem = adminUpdateProblem
 export const deleteProblem = adminDeleteProblem
 
+/**
+ * Fetches all compete views and their populated problem data.
+ */
+export async function fetchAllViews(): Promise<any> {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/views`);
+    return await response.json();
+}
+
+/**
+ * Creates or updates a compete view with the provided problem IDs.
+ */
+export async function createOrUpdateView(name: string, problemIds: string[]): Promise<any> {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/views`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, problem_ids: problemIds })
+    });
+    return await response.json();
+}
+
+/**
+ * Deletes a specified compete view.
+ */
+export async function deleteView(name: string): Promise<any> {
+    const response = await fetch(`${API_BASE_DB_URL}/api/admin/views`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+    });
+    return await response.json();
+}
 // ============================================================================
-// User Analytics Dashboard API (Stub Functions)
+// User Analytics Dashboard API
 // ============================================================================
 
 import type {

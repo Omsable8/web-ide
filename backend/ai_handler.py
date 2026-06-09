@@ -1,8 +1,6 @@
 import traceback
 from flask import Flask, app, jsonify, request
 from flask_cors import CORS
-import os
-
 from ai_chatbot import AIChatbot
 from config import Config
 from data_logger import DataLogger

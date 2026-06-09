@@ -1,5 +1,4 @@
 # backend/database.py
-import os
 from sqlalchemy import create_engine, text
 from config import Config
 

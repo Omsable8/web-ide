@@ -1,9 +1,7 @@
 import os
 from typing import List, Dict, Optional
-import json
 import requests
 import re
-import markdown
 from print_log import Logger
 logger = Logger(False)
 class Message:

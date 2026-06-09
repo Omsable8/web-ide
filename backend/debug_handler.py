@@ -4,15 +4,13 @@ Fixed Flask-SocketIO debug server with proper DAP flow and disconnect handling
 from gevent import monkey; monkey.patch_all()
 import gevent
 from flask import Flask, request
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import SocketIO, join_room
 from flask_cors import CORS
 from config import Config
-from debug_adapter_factory import DebugSessionManager, DebugAdapterFactory, Language
+from debug_adapter_factory import DebugSessionManager, Language
 from base_debug_adapter import DebuggerState
 import traceback
 import requests
-import json
-import re
 from execution_handler import build_stdin
 from print_log import Logger
 logger = Logger()
