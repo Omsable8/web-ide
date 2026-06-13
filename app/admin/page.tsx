@@ -96,8 +96,6 @@ export default function AdminPage() {
   const [loadingLearn, setLoadingLearn] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   
-  // const [loadingCompete, setLoadingCompete] = useState(true)
-  // const [competeProblems, setCompeteProblems] = useState<Problem[]>([])
   /** State for dynamic compete views */
   const [competeViews, setCompeteViews] = useState<Record<string, Problem[]>>({});
   const [loadingViews, setLoadingViews] = useState(true);
@@ -179,17 +177,6 @@ export default function AdminPage() {
       setLoadingLearn(false)
     }
 
-    // setLoadingCompete(true)
-    // try {
-    //   const competeResponse = await getAdminProblems('compete')
-    //   if (competeResponse.success && competeResponse.problems) {
-    //     setCompeteProblems(competeResponse.problems)
-    //   }
-    // } catch (error) {
-    //   console.error('Failed to fetch compete problems:', error)
-    // } finally {
-    //   setLoadingCompete(false)
-    // }
   }
   /** Fetch all views from the database */
   const loadViews = async () => {
@@ -212,6 +199,10 @@ export default function AdminPage() {
           setLoadingViews(false);
       }
   };
+  
+  useEffect(() => {
+    loadViews()
+  }, [])
 
   /** Toggle specific view expansion */
   const toggleViewExpanded = (viewName: string) => {

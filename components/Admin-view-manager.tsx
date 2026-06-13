@@ -24,7 +24,18 @@ export function AdminViewManager({
     // Filters state
     const [searchQuery, setSearchQuery] = useState('');
     const [difficulty, setDifficulty] = useState<string>('');
-
+    const getDifficultyColor = (difficulty: string) => {
+        switch (difficulty?.toLowerCase()) {
+        case 'easy':
+            return 'text-green-500 bg-green-500/10'
+        case 'medium':
+            return 'text-yellow-500 bg-yellow-500/10'
+        case 'hard':
+            return 'text-red-500 bg-red-500/10'
+        default:
+            return 'text-muted-foreground bg-muted'
+        }
+    }
     // Pre-fill selected problems if editing an existing view
     useEffect(() => {
         if (existingProblems && existingProblems.length > 0) {
@@ -78,9 +89,9 @@ export function AdminViewManager({
                     className="w-full px-4 py-2 rounded-lg bg-background border border-border"
                 >
                     <option value="">All Difficulties</option>
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
                 </select>
                 <div className="relative">
                     <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
@@ -123,11 +134,7 @@ export function AdminViewManager({
                                     className="w-4 h-4 rounded border-gray-300 text-accent focus:ring-accent"
                                 />
                                 <div className="flex-1 font-medium">{problem.title}</div>
-                                <div className={`text-xs px-2 py-1 rounded uppercase tracking-wider font-semibold ${
-                                    problem.difficulty === 'easy' ? 'bg-green-500/10 text-green-500' :
-                                    problem.difficulty === 'medium' ? 'bg-yellow-500/10 text-yellow-500' :
-                                    'bg-red-500/10 text-red-500'
-                                }`}>
+                                <div className={`px-2 py-1 rounded text-xs font-semibold ${getDifficultyColor(problem.difficulty)}`}>
                                     {problem.difficulty}
                                 </div>
                             </div>

@@ -33,7 +33,7 @@ function CompetePage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const searchParams = useSearchParams()
-
+  const CONTEST_NAME = 'hard'
   useEffect(() => {
     fetchProblems()
   }, [selectedDifficulty, selectedCategory])
@@ -44,7 +44,7 @@ function CompetePage() {
       const response = await getProblems({
         difficulty: selectedDifficulty || undefined,
         category: selectedCategory || undefined,
-        mode: 'compete'
+        mode: 'compete_'+ CONTEST_NAME
       })
 
       if (response.success && response.problems) {
