@@ -110,10 +110,10 @@ export function MonacoEditorInstance({
     })
 
     // Apply saved theme/font
-    const savedTheme = localStorage.getItem('editorTheme') || 'dark'
+    const savedTheme = sessionStorage.getItem('editorTheme') || 'dark'
     monaco.editor.setTheme(savedTheme === 'light' ? 'ide-light' : 'ide-dark')
     
-    const savedFontSize = parseInt(localStorage.getItem('fontSize') || '14')
+    const savedFontSize = parseInt(sessionStorage.getItem('fontSize') || '14')
     editor.updateOptions({ fontSize: savedFontSize })
 
     // Track cursor
@@ -141,7 +141,7 @@ export function MonacoEditorInstance({
     })
     
     // Check initial keybindings
-    applyKeybindings(localStorage.getItem('keyBindings') || 'vscode')
+    applyKeybindings(sessionStorage.getItem('keyBindings') || 'vscode')
   }
 
   // --- Theme & Font Listeners ---

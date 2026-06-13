@@ -152,11 +152,11 @@ export default function AdminPage() {
     if (root.classList.contains('dark')) {
       root.classList.remove('dark')
       setIsDark(false)
-      localStorage.setItem('editorTheme', 'light')
+      sessionStorage.setItem('editorTheme', 'light')
     } else {
       root.classList.add('dark')
       setIsDark(true)
-      localStorage.setItem('editorTheme', 'dark')
+      sessionStorage.setItem('editorTheme', 'dark')
     }
   }
 

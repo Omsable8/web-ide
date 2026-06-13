@@ -44,31 +44,31 @@ export const DevPreferences: React.FC<Props> = ({ isOpen, onClose }) => {
   const [language, setLanguage] = useState<'python' | 'cpp' | 'java'>('python');
   const [editorTheme, setEditorTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem('editorTheme') as 'light' | 'dark') || 'dark'
+      return (sessionStorage.getItem('editorTheme') as 'light' | 'dark') || 'dark'
     }
     return 'dark'
   });
   const [fontSize, setFontSize] = useState(() => {
     if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('fontSize') || '14')
+      return parseInt(sessionStorage.getItem('fontSize') || '14')
     }
     return 14
   });
   const [keyBindings, setKeyBindings] = useState<'vscode' | 'vim' | 'emacs'>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem('keyBindings') as 'vscode' | 'vim' | 'emacs') || 'vscode'
+      return (sessionStorage.getItem('keyBindings') as 'vscode' | 'vim' | 'emacs') || 'vscode'
     }
     return 'vscode'
   });
   const handleKeyBindingsChange = (binding: 'vscode' | 'vim' | 'emacs') => {
       setKeyBindings(binding);
-      localStorage.setItem('keyBindings', binding);
+      sessionStorage.setItem('keyBindings', binding);
       // Dispatch event to update monaco editor
       window.dispatchEvent(new CustomEvent('editorKeybindingsChange', { detail: { binding } }));
    };
   const handleThemeChange = (theme: 'light' | 'dark') => {
     setEditorTheme(theme);
-    localStorage.setItem('editorTheme', theme);
+    sessionStorage.setItem('editorTheme', theme);
     // Apply theme to document
     if (theme === 'light') {
       document.documentElement.classList.remove('dark');
@@ -81,7 +81,7 @@ export const DevPreferences: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const handleFontSizeChange = (size: number) => {
     setFontSize(size);
-    localStorage.setItem('fontSize', size.toString());
+    sessionStorage.setItem('fontSize', size.toString());
     // Dispatch event to update monaco editor
     window.dispatchEvent(new CustomEvent('editorFontSizeChange', { detail: { fontSize: size } }));
   };

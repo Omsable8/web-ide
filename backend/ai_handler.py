@@ -1,6 +1,8 @@
 import traceback
 from flask import Flask, app, jsonify, request
 from flask_cors import CORS
+from flask_jwt_extended import jwt_required, get_jwt_identity, JWTManager
+
 from ai_chatbot import AIChatbot
 from config import Config
 from data_logger import DataLogger
@@ -10,13 +12,15 @@ logger = Logger(disable=False)
 app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
-CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
+CORS(app, supports_credentials=True,origins=["http://localhost:3000"])
+JWT_MANAGER = JWTManager(app)
 ai_chatbot = AIChatbot(model=Config.AI_MODEL, api_key=Config.OPENAI_API_KEY)
 # Validate configuration
 Config.validate()
 
 
 @app.route('/service/ai/chat', methods=['POST'])
+@jwt_required()
 def ai_chat():
     """Send message to AI chatbot with optional code and error context"""
     try:
@@ -24,7 +28,7 @@ def ai_chat():
         message = data.get('message', '')
         code_context = data.get('code', None)
         error_context = data.get('error', None)
-        uid = data.get('uid', 'unknown_user')
+        uid = get_jwt_identity()
         pid = data.get('pid', 'unknown_problem')
         if not message:
             return jsonify({"success": False, "error": "No message provided"}), 400
@@ -45,6 +49,7 @@ def ai_chat():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/service/ai/set-model', methods=['POST'])
+@jwt_required()
 def set_model():
     """Set the AI model to use"""
     try:
@@ -65,6 +70,7 @@ def set_model():
 
 
 @app.route('/service/ai/explain-failure', methods=['POST'])
+@jwt_required()
 def explain_failure():
     """Explain test case failure"""
     try:
@@ -78,6 +84,7 @@ def explain_failure():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/service/ai/clear', methods=['POST'])
+@jwt_required()
 def clear_chat():
     """Clear chat history"""
     try:
@@ -88,6 +95,7 @@ def clear_chat():
     
 
 @app.route('/service/ai/code/complexity', methods=['POST'])
+@jwt_required()
 def analyze_complexity():
     """Analyze time and space complexity of code using AI"""
     try:

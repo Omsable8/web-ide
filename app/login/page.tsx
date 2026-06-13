@@ -26,8 +26,8 @@ export default function LoginPage() {
     try {
       await login(email, password)
       // isAdmin is set synchronously inside login() before it resolves,
-      // so we read it from localStorage to decide the redirect destination.
-      const adminFlag = localStorage.getItem('isAdmin') === 'true'
+      // so we read it from sessionStorage to decide the redirect destination.
+      const adminFlag = sessionStorage.getItem('isAdmin') === 'true'
       router.push(adminFlag ? '/admin' : '/learn')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')

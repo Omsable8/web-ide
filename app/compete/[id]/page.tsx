@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, ArrowLeft, ChevronDown, ChevronUp, Lightbulb, Trash2, Plus, Settings, Zap, X, Bug } from 'lucide-react'
-import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate, updateFeaturesUsed, getFeaturesUsed } from '@/lib/api'
+import { getProblem, getTestCases, getHints, runTests, submitCode, analyzeComplexity, getTemplate, updateFeaturesUsed} from '@/lib/api'
 import { MonacoEditorInstance } from '@/components/monaco-editor-instance'
 import { StructuredTestCases } from '@/components/structured-test-cases'
 import { SubmissionModal } from '@/components/submission-modal'
@@ -151,7 +151,6 @@ function ProblemDetailPage() {
       // Call backend to update features used
       try {
         await updateFeaturesUsed(
-          localStorage.getItem('uid') || user.uid,
           problemId,
           { hints: newHintsUsed },
           { hints: hintsUsed }
@@ -194,8 +193,8 @@ function ProblemDetailPage() {
     const storageKey = `autosave_${problemId}_${language}`
 
     const loadCode = async () => {
-      // 1. Try LocalStorage First (User's draft)
-      const savedCode = localStorage.getItem(storageKey)
+      // 1. Try sessionStorage First (User's draft)
+      const savedCode = sessionStorage.getItem(storageKey)
 
       if (savedCode) {
         console.log(`[AutoSave] Restored from local storage for ${language}`)
@@ -225,7 +224,7 @@ function ProblemDetailPage() {
     // 3. Setup Auto-Save Interval (Every 2 minutes)
     const saveInterval = setInterval(() => {
       if (codeRef.current) {
-        localStorage.setItem(storageKey, codeRef.current)
+        sessionStorage.setItem(storageKey, codeRef.current)
         setLastSaved(new Date())
         console.log(`[AutoSave] Saved draft for ${language} at ${new Date().toLocaleTimeString()}`)
       }
@@ -246,7 +245,7 @@ function ProblemDetailPage() {
         .map(match => parseInt(match![1]));
 
     setErrorLines(lines);
-    console.log(lines); // Log 'lines' directly to verify extraction
+    // console.log(lines); // Log 'lines' directly to verify extraction
   }
 
   const handleRunTests = async () => {
@@ -371,9 +370,8 @@ function ProblemDetailPage() {
     setIsDebugging(true)
     setShowDebugWindow(true)
     setDebuggerUsed(1)
-    const uid = localStorage.getItem('uid') || ''
     try {
-      await updateFeaturesUsed(uid, problemId, { debug_btn: 1 }, { debug_btn: debuggerUsed })
+      await updateFeaturesUsed(problemId, { debug_btn: 1 }, { debug_btn: debuggerUsed })
       setDebuggerUsed(1)
     } catch (error) {
       console.error('[v0] Failed to update hints usage:', error)
@@ -403,7 +401,6 @@ function ProblemDetailPage() {
     setShowDebugWindow(false)    // Ensure standard one is closed
     
     // Track feature usage
-    const uid = localStorage.getItem('uid') || ''
     // updateFeaturesUsed(uid, problemId, { debug_btn: 1 }, { debug_btn: 0 })
     
     try {
@@ -438,7 +435,7 @@ function ProblemDetailPage() {
         setCode(templateCode)
         // Clear auto-save for this problem/language
         const storageKey = `problem_${problemId}_${language}`
-        localStorage.removeItem(storageKey)
+        sessionStorage.removeItem(storageKey)
         console.log("[v0] Code reset to template and auto-save cleared")
       }
     } catch (error) {
@@ -449,7 +446,7 @@ function ProblemDetailPage() {
   const handleAnalyzeComplexity = async () => {
     if (!code.trim()) return
     setAnalyzingComplexity(true)
-    updateFeaturesUsed(localStorage.getItem('uid') || '', problemId, { performance_analyzer: 1 }, { performance_analyzer: complexityUsed })
+    updateFeaturesUsed(problemId, { performance_analyzer: 1 }, { performance_analyzer: complexityUsed })
     setComplexityUsed(1)
     try {
       const result = await analyzeComplexity(code, language)
@@ -583,7 +580,7 @@ function ProblemDetailPage() {
           <Button size="sm" variant="ghost" onClick={() => {
             setShowDevPreferences(true);
 
-            updateFeaturesUsed(localStorage.getItem('uid') || '', problemId, { dev_preferences: 1 }, { dev_preferences: devprefUsed });
+            updateFeaturesUsed(problemId, { dev_preferences: 1 }, { dev_preferences: devprefUsed });
             setDevPrefUsed(1);
           }} className="text-foreground hover:text-accent">
             <Settings className="w-4 h-4" />
@@ -686,8 +683,7 @@ function ProblemDetailPage() {
                           input_params: testCases[0].input_params.map((p) => ({ name: p.name, type: p.type, value: '' })) || []
                         },
                       ])
-                      const uid = localStorage.getItem('uid') || ''
-                      updateFeaturesUsed(uid, problemId, { custom_tc: 1 }, { custom_tc: customTcUsed })
+                      updateFeaturesUsed(problemId, { custom_tc: 1 }, { custom_tc: customTcUsed })
                       setCustomTcUsed(1)
                     }}
                     onRemoveCustomTestCase={(index) => setCustomTestCases(customTestCases.filter((_, i) => i !== index))}

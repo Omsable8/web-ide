@@ -1,28 +1,31 @@
+import csv, re, json
 from functools import lru_cache
-import json
 from flask import Flask, request, jsonify,Response
 from flask_cors import CORS
-from config import Config
 from psycopg2.extras import Json
-import csv
 from io import StringIO
-import re
+from flask_jwt_extended import *
+
+from config import Config
 from auth_handler import AuthHandler
 from data_logger import DataLogger
 from database import execute_read, execute_write
 from print_log import Logger
 logger = Logger()
+
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
-CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
-
-
+CORS(app, supports_credentials=True,origins=["http://localhost:3000"])
+JWT_MANAGER = JWTManager(app)
 auth = AuthHandler() # No client needed anymore
 ADMIN_WHITELIST = ["b7fa8d3e-10f5-4b2c-9624-7ef547ac86c5"]
 
-# --- Cached Helper Functions ---
+# ============================================================================
+# Cached Helper Functions
+# ============================================================================
+
 LRU_CACHE_SIZE = 40  # Adjust based on expected load and memory constraints
 @lru_cache(maxsize=LRU_CACHE_SIZE) # Increased size to handle (10 problems * 3 languages)
 def _fetch_template_from_db(problem_id, language):
@@ -84,7 +87,6 @@ def _fetch_problem_from_db(problem_id):
     rows = execute_read("SELECT * FROM problems WHERE id = :pid", {"pid": problem_id})
     return {"data": rows[0] if rows else None}
 
-
 # ============================================================================
 # Health Check
 # ============================================================================
@@ -97,7 +99,6 @@ def health_check():
         "ai_ready": True,
         "code_execution": "local"
     })
-
 
 # ============================================================================
 # Authentication Endpoints
@@ -114,25 +115,25 @@ def signup():
     cohort = data.get('cohort')  # Optional
     
     if not name or not email or not password:
-        return jsonify({
-            'success': False,
-            'error': 'Name, email, and password are required'
-        }), 400
+        return jsonify({'success': False, 'error': 'Name, email, and password are required'}), 400
     
     # Validate password strength
     if len(password) < 6:
-        return jsonify({
-            'success': False,
-            'error': 'Password must be at least 6 characters'
-        }), 400
+        return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
     
     result = auth.signup(name, email, password, cohort)
-    
-    if result['success']:
-        return jsonify(result), 201
-    else:
+    if not result['success']:
         return jsonify(result), 400
+    
+    user = result.get('user')
+    username = user.get('name')
+    uid = user.get('uid')
+    
+    resp = jsonify({'success':True,'user':{'name': username} })
+    set_access_cookies(response=resp,encoded_access_token= create_access_token(identity=uid) )
+    set_refresh_cookies(response=resp,encoded_refresh_token= create_refresh_token(identity=uid) )
 
+    return resp, 201
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
@@ -143,79 +144,49 @@ def login():
     password = data.get('password')
     
     if not email or not password:
-        return jsonify({
-            'success': False,
-            'error': 'Email and password are required'
-        }), 400
+        return jsonify({'success': False, 'error': 'Email and password are required'}), 400
     
     result = auth.login(email, password)
     
+    if not result['success']:
+        return jsonify(result), 401
+    
     # print(f"[DEBUG] User {result['user']['email']} logged in with UID {result['user']['uid']}")
-    if result['success']:
-        return jsonify(result), 200
-    else:
-        return jsonify(result), 401
+    user = result.get('user')
+    username = user.get('name')
+    uid = user.get('uid')
+    resp = jsonify({'success':True,'user':{'name': username} })
+    set_access_cookies(response=resp,encoded_access_token= create_access_token(identity=uid))
+    set_refresh_cookies(response=resp,encoded_refresh_token= create_refresh_token(identity=uid))
 
+    return resp,201
 
-@app.route('/api/auth/verify', methods=['POST'])
-def verify():
-    '''Verify user token'''
-    data = request.get_json()
-    token = data.get('token')
-    
-    if not token:
-        return jsonify({
-            'valid': False,
-            'error': 'Token is required'
-        }), 400
-    
-    result = auth.verify_token(token)
-    
-    if result['valid']:
-        return jsonify(result), 200
-    else:
-        return jsonify(result), 401
+@app.route('/token/refresh')
+@jwt_required(refresh=True)
+def refresh_token():
+    uid = get_jwt_identity()
+    resp = jsonify({'success':True}) 
+    set_access_cookies(response=resp, encoded_access_token=create_access_token(identity=uid))
+    return resp   
 
+@JWT_MANAGER.invalid_token_loader
+def invalid_token_callback(error_string):
+    """Custom response for tampered or invalid tokens."""
+    return jsonify({"error": "invalid_token", "message": error_string}), 401
 
-# Middleware to protect routes
-def require_auth(f):
-    '''Decorator to require authentication'''
-    from functools import wraps
-    
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Get token from Authorization header
-        auth_header = request.headers.get('Authorization')
-        
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({
-                'success': False,
-                'error': 'Unauthorized'
-            }), 401
-        
-        token = auth_header.split(' ')[1]
-        result = auth.verify_token(token)
-        
-        if not result['valid']:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid token'
-            }), 401
-        
-        # Add user_id to request for use in route
-        request.user_id = result['uid']
-        
-        return f(*args, **kwargs)
-    
-    return decorated_function
-
+@JWT_MANAGER.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    """Custom response when a token expires."""
+    return jsonify({"error": "token_expired", "message": "Please log in again."}), 401
 
 @app.route('/api/auth/check-admin')
+@jwt_required()
 def check_admin():
-    uid = request.args.get('uid', '')
+    uid = get_jwt_identity()
     return jsonify({ 'success': True, 'is_admin': uid in ADMIN_WHITELIST })
-    
+
 @app.route('/api/features/update', methods=['POST'])
+@jwt_required()    
 def store_features_usage():
     """Helper to store feature usage in DB"""
     try:
@@ -223,7 +194,7 @@ def store_features_usage():
         datalogger = DataLogger()
         
         data = request.get_json()
-        uid = data.get('uid')
+        uid = get_jwt_identity()
         pid = data.get('pid')
         features = data.get('features', {})
         
@@ -240,6 +211,7 @@ def store_features_usage():
 # ============================================================================
 
 @app.route('/api/problems', methods=['GET'])
+@jwt_required()
 def get_problems():
     """Fetch all DSA problems with optional filters"""
     try:
@@ -258,6 +230,7 @@ def get_problems():
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/problems/<problem_id>', methods=['GET'])
+@jwt_required()
 def get_problem(problem_id):
     """Fetch a specific DSA problem with all details"""
     try:
@@ -274,6 +247,7 @@ def get_problem(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/problems/<problem_id>/hints', methods=['GET'])
+@jwt_required()
 def get_hints(problem_id):
     """Fetch all hints for a problem (nested JSON array)"""
     try:
@@ -296,6 +270,7 @@ def get_hints(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/problems/<problem_id>/test-cases', methods=['GET'])
+@jwt_required(optional=True)
 def get_test_cases(problem_id):
     """Fetch all test cases for a problem (public and private)"""
     try:
@@ -335,6 +310,7 @@ def get_test_cases(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/problems/<problem_id>/template', methods=['GET'])
+@jwt_required(optional=True)
 def get_template(problem_id):
     """Fetch code template for a specific language"""
     try:
@@ -359,6 +335,7 @@ def get_template(problem_id):
 # Admin Endpoints
 # ============================================================================
 @app.route('/api/admin/problems', methods=['POST'])
+@jwt_required()
 def admin_create_problem():
     """Create a new problem along with its hints and templates"""
     try:
@@ -419,6 +396,7 @@ def admin_create_problem():
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/admin/problems/<problem_id>', methods=['PUT'])
+@jwt_required()
 def admin_update_problem(problem_id):
     """Update existing problem metadata and clear relevant caches"""
     try:
@@ -450,6 +428,7 @@ def admin_update_problem(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/admin/problems/<problem_id>/hints', methods=['PUT'])
+@jwt_required()
 def admin_update_hints(problem_id):
     """Replace all hints for a specific problem"""
     try:
@@ -466,6 +445,7 @@ def admin_update_hints(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/problems/<problem_id>/test-cases', methods=['PUT'])
+@jwt_required()
 def admin_update_test_cases(problem_id):
     """Update public and private test cases"""
     try:
@@ -492,6 +472,7 @@ def admin_update_test_cases(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/admin/problems/<problem_id>/templates/<language>', methods=['PUT'])
+@jwt_required()
 def admin_update_template(problem_id, language):
     """Update template, driver, and solution code for a specific language"""
     try:
@@ -519,6 +500,7 @@ def admin_update_template(problem_id, language):
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/admin/problems/<problem_id>', methods=['DELETE'])
+@jwt_required()
 def admin_delete_problem(problem_id):
     """Delete a problem and its associated data"""
     try:
@@ -532,6 +514,7 @@ def admin_delete_problem(problem_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/views', methods=['POST'])
+@jwt_required()
 def admin_create_view():
     """Create or update a view from problems table for compete mode"""
     try:
@@ -557,6 +540,7 @@ def admin_create_view():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/views', methods=['DELETE'])
+@jwt_required()
 def admin_delete_view():
     """Delete the given view"""
     try:
@@ -572,6 +556,7 @@ def admin_delete_view():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/views', methods=['GET'])
+@jwt_required()
 def get_all_views_data():
     """Fetch all compete views and their underlying tabular data"""
     try:
@@ -597,27 +582,12 @@ def get_all_views_data():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/', methods=['GET'])
-def index():
-    """Root endpoint with available endpoints"""
-    return jsonify({
-        "message": "CodeIDE Backend API",
-        "version": "2.0.0",
-        "execution_model": "Local (Direct execution via subprocess)",
-        "endpoints": {
-            "execute": ["/service/execute/code/run", "/service/execute/problems/<id>/run-tests", "/service/execute/problems/<id>/submit"],
-            "problems": ["/api/problems", "/api/problems/<id>", "/api/problems/<id>/test-cases", "/api/problems/<id>/hints"],
-            "ai": ["/service/ai/chat", "/service/ai/set-model", "/service/ai/analyze", "/service/ai/explain-failure", "/service/ai/clear","/service/ai/code/complexity"],
-            "health": ["/api/health"]
-        }
-    })
-
-
 # ============================================================================
 # Analytics Endpoints
 # ============================================================================
 
 @app.route('/api/analytics/stats', methods=['GET'])
+@jwt_required()
 def get_platform_stats():
     """Returns global KPI statistics for the dashboard."""
     try:
@@ -635,6 +605,7 @@ def get_platform_stats():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/users', methods=['GET'])
+@jwt_required()
 def get_all_users_analytics():
     """Returns paginated user analytics summaries."""
     try:
@@ -680,6 +651,7 @@ def get_all_users_analytics():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/users/<uid>', methods=['GET'])
+@jwt_required()
 def get_student_details(uid):
     """Returns detailed profile, difficulty breakdown, and history for a specific student."""
     try:
@@ -785,6 +757,7 @@ def get_student_details(uid):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/charts/velocity', methods=['GET'])
+@jwt_required()
 def get_difficulty_velocity():
     """
     Returns problem attempt and solve velocity grouped by difficulty.
@@ -805,6 +778,7 @@ def get_difficulty_velocity():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/charts/ai-assistance', methods=['GET'])
+@jwt_required()
 def get_ai_assistance_data():
     """Returns average AI message volume per problem."""
     try:
@@ -826,6 +800,7 @@ def get_ai_assistance_data():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/export/system', methods=['GET'])
+@jwt_required()
 def export_system_csv():
     """Generates and streams a CSV of global system metrics."""
     try:
@@ -855,6 +830,7 @@ def export_system_csv():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/export/user/<uid>', methods=['GET'])
+@jwt_required()
 def export_user_csv(uid):
     """Generates and streams a raw CSV ledger for a specific student."""
     try:
@@ -890,6 +866,21 @@ def not_found(e):
 @app.errorhandler(500)
 def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/', methods=['GET'])
+def index():
+    """Root endpoint with available endpoints"""
+    return jsonify({
+        "message": "MAPLE Backend API",
+        "version": "2.0.0",
+        "execution_model": "Local (Direct execution via subprocess)",
+        "endpoints": {
+            "execute": ["/service/execute/code/run", "/service/execute/problems/<id>/run-tests", "/service/execute/problems/<id>/submit"],
+            "problems": ["/api/problems", "/api/problems/<id>", "/api/problems/<id>/test-cases", "/api/problems/<id>/hints"],
+            "ai": ["/service/ai/chat", "/service/ai/set-model", "/service/ai/analyze", "/service/ai/explain-failure", "/service/ai/clear","/service/ai/code/complexity"],
+            "health": ["/api/health"]
+        }
+    })
 
 # ============================================================================
 # Main

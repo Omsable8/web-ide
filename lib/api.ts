@@ -2,6 +2,51 @@ const API_BASE_DB_URL = process.env.NEXT_PUBLIC_API_DB_URL || "http://192.168.0.
 const API_BASE_EXE_URL = process.env.NEXT_PUBLIC_API_EXE_URL || "http://192.168.0.107:5001"
 const API_BASE_AI_URL = process.env.NEXT_PUBLIC_API_AI_URL || "http://192.168.0.107:5002"
 
+// Helper function to read a specific cookie value by name
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+}
+
+export async function AuthenticatedFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  // Ensure init object exists
+  const options: RequestInit = init || {};
+
+  // 1. Force browser to include access/refresh cookies automatically
+  options.credentials = 'include';
+  // 2. Extract the CSRF token from the browser cookie
+  const csrfToken = getCookie('csrf_access_token');
+  // 3. Inject CSRF header for mutating state methods (POST, PUT, DELETE, PATCH)
+  const method = (options.method || 'GET').toUpperCase();
+  if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    options.headers = {
+      ...options.headers,
+      'X-CSRF-TOKEN': csrfToken,
+    };
+  }
+  // 4. Execute the fetch
+  let response = await fetch(input, options);
+  // 5. Automatic Silent Refresh: If token expired (401), try to refresh it once
+  if (response.status === 401) {
+    const refreshResponse = await fetch(`/token/refresh`, { credentials: 'include' });
+    
+    if (refreshResponse.ok) {
+      // Retry the original request exactly as it was
+      response = await fetch(input, options);
+    } else {
+      // Refresh token also failed or expired -> Redirect user to login page
+      console.warn("Session expired. Redirecting to login.");
+      window.location.href = '/login';
+    }
+  }
+  return response;
+}
+
 export interface ExecuteCodeRequest {
   code: string
   language: string
@@ -16,7 +61,6 @@ export interface ExecuteCodeResponse {
 }
 
 export interface ChatRequest {
-  uid: string
   pid:string
   message: string
   code?: string
@@ -28,7 +72,6 @@ export interface ChatResponse {
   response: string
   history?: Array<{ role: string; content: string }>
 }
-
 
 // ============================================================================
 // Code Templates
@@ -83,8 +126,8 @@ export async function getTemplate(
   language: string
 ): Promise<{ success: boolean; template?: CodeTemplate; error?: string }> {
   try {
-    const response = await fetch(
-      `${API_BASE_DB_URL}/api/problems/${problemId}/template?language=${language}`,
+    const response = await AuthenticatedFetch(
+      `/api/problems/${problemId}/template?language=${language}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -101,8 +144,8 @@ export async function getTestCases(
   problemId: string
 ): Promise<{ success: boolean; public_test_cases?: any[]; private_test_cases?: any[]; error?: string }> {
   try {
-    const response = await fetch(
-      `${API_BASE_DB_URL}/api/problems/${problemId}/test-cases`,
+    const response = await AuthenticatedFetch(
+      `/api/problems/${problemId}/test-cases`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -170,11 +213,10 @@ export async function runTests(
   custom_tests?: any[]
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; error?: string }> {
   try {
-    const userId = localStorage.getItem('uid');
-    const response = await fetch(`${API_BASE_EXE_URL}/service/execute/problems/${problemId}/run-tests`, {
+    const response = await AuthenticatedFetch(`/service/execute/problems/${problemId}/run-tests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, language, custom_tests,userId}),
+      body: JSON.stringify({ code, language, custom_tests}),
     })
     
     if (!response.ok) {
@@ -195,11 +237,10 @@ export async function submitCode(
   custom_tests?: any[]
 ): Promise<{ success: boolean; total_tests?: number; passed_tests?: number; results?: TestResult[]; accepted?: boolean; error?: string }> {
   try {
-    const userId = localStorage.getItem('uid');
-    const response = await fetch(`${API_BASE_EXE_URL}/service/execute/problems/${problemId}/submit`, {
+    const response = await AuthenticatedFetch(`/service/execute/problems/${problemId}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, language, custom_tests,userId }),
+      body: JSON.stringify({ code, language, custom_tests}),
     })
 
     if (!response.ok) {
@@ -216,7 +257,7 @@ export async function submitCode(
 // Execute code on remote server
 export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteCodeResponse> {
   try {
-    const response = await fetch(`${API_BASE_EXE_URL}/service/execute/code/run`, {
+    const response = await AuthenticatedFetch(`/service/execute/code/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -236,7 +277,7 @@ export async function executeCode(request: ExecuteCodeRequest): Promise<ExecuteC
 // Send message to AI chatbot
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/service/ai/chat`, {
+    const response = await AuthenticatedFetch(`/service/ai/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -255,7 +296,7 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
 
 export async function setAIModel(model: string): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/service/ai/set-model`, {
+    const response = await AuthenticatedFetch(`/service/ai/set-model`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model }),
@@ -275,7 +316,7 @@ export async function setAIModel(model: string): Promise<{ success: boolean; mes
 // Analyze code for issues
 export async function analyzeCode(code: string, language: string) {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/service/ai/analyze`, {
+    const response = await AuthenticatedFetch(`/service/ai/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language }),
@@ -290,7 +331,7 @@ export async function analyzeCode(code: string, language: string) {
 // Explain test case failure
 export async function explainTestFailure(expected: string, actual: string, input: string) {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/service/ai/explain-failure`, {
+    const response = await AuthenticatedFetch(`/service/ai/explain-failure`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ expected, actual, input }),
@@ -305,7 +346,7 @@ export async function explainTestFailure(expected: string, actual: string, input
 // Clear chat history
 export async function clearChatHistory() {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/service/ai/clear`, {
+    const response = await AuthenticatedFetch(`/service/ai/clear`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })
@@ -347,7 +388,7 @@ export async function getProblems(filters?: { difficulty?: string; category?: st
     if (filters?.category) params.append('category', filters.category)
     if (filters?.mode) params.append('mode', filters.mode)
     
-    const response = await fetch(`${API_BASE_DB_URL}/api/problems${params.toString() ? `?${params}` : ''}`, {
+    const response = await AuthenticatedFetch(`/api/problems${params.toString() ? `?${params}` : ''}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     })
@@ -360,7 +401,7 @@ export async function getProblems(filters?: { difficulty?: string; category?: st
 
 export async function getProblem(problemId: string): Promise<{ success: boolean; problem?: Problem; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/problems/${problemId}`, {
+    const response = await AuthenticatedFetch(`/api/problems/${problemId}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     })
@@ -374,7 +415,7 @@ export async function getProblem(problemId: string): Promise<{ success: boolean;
 
 export async function getHints(problemId: string): Promise<{ success: boolean; hints?: Array<{ level: number; title: string; content: string }>; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/problems/${problemId}/hints`, {
+    const response = await AuthenticatedFetch(`/api/problems/${problemId}/hints`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     })
@@ -398,7 +439,7 @@ export async function getHints(problemId: string): Promise<{ success: boolean; h
 
 export async function analyzeComplexity(code: string, language: string) {
   try {
-    const response = await fetch(`${API_BASE_AI_URL}/service/ai/code/complexity`, {
+    const response = await AuthenticatedFetch(`/service/ai/code/complexity`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, language }),
@@ -428,7 +469,6 @@ export interface FeaturesUsed {
  * Only calls backend if the feature hasn't been tracked yet (value is null/0)
  */
 export async function updateFeaturesUsed(
-  uid: string,
   problemId: string,
   features: FeaturesUsed,
   initialFeatures: FeaturesUsed
@@ -478,11 +518,10 @@ export async function updateFeaturesUsed(
       return { success: true }
     }
 
-    const response = await fetch(`${API_BASE_DB_URL}/api/features/update`, {
+    const response = await AuthenticatedFetch(`/api/features/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        uid,
         pid: problemId,
         features: needsUpdate,
       }),
@@ -507,7 +546,7 @@ export async function getFeaturesUsed(
   problemId: string
 ): Promise<{ success: boolean; features?: FeaturesUsed; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/features/${uid}/${problemId}`, {
+    const response = await AuthenticatedFetch(`/api/features/${uid}/${problemId}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     })
@@ -571,13 +610,13 @@ export async function getAdminProblemDetail(problemId: string): Promise<{ succes
       getProblem(problemId),
       getHints(problemId),
       // Fetch raw test cases (not flattened) for admin view
-      fetch(`${API_BASE_DB_URL}/api/problems/${problemId}/test-cases`, {
+      AuthenticatedFetch(`/api/problems/${problemId}/test-cases`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       }).then(res => res.json()),
       // Fetch each language template using the same pattern as getTemplate()
       ...SUPPORTED_LANGUAGES.map(lang =>
-        fetch(`${API_BASE_DB_URL}/api/problems/${problemId}/template?language=${lang}`, {
+        AuthenticatedFetch(`/api/problems/${problemId}/template?language=${lang}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         })
@@ -623,7 +662,7 @@ export async function adminCreateProblem(data: {
   code_templates: AdminCodeTemplate[]
 }): Promise<{ success: boolean; problem_id?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems`, {
+    const response = await AuthenticatedFetch(`/api/admin/problems`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -641,7 +680,7 @@ export async function adminCreateProblem(data: {
  */
 export async function adminUpdateProblem(problemId: string, problemData: Partial<AdminProblem>): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}`, {
+    const response = await AuthenticatedFetch(`/api/admin/problems/${problemId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(problemData),
@@ -659,7 +698,7 @@ export async function adminUpdateProblem(problemId: string, problemData: Partial
  */
 export async function adminUpdateHints(problemId: string, hints: Array<{ level: number; title: string; content: string }>): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}/hints`, {
+    const response = await AuthenticatedFetch(`/api/admin/problems/${problemId}/hints`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hints }),
@@ -677,7 +716,7 @@ export async function adminUpdateHints(problemId: string, hints: Array<{ level: 
  */
 export async function adminUpdateTestCases(problemId: string, publicTestCases: any[], privateTestCases: any[]): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}/test-cases`, {
+    const response = await AuthenticatedFetch(`/api/admin/problems/${problemId}/test-cases`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -705,7 +744,7 @@ export async function adminUpdateTemplate(problemId: string, language: string, t
   return_type: string
 }): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}/templates/${language}`, {
+    const response = await AuthenticatedFetch(`/api/admin/problems/${problemId}/templates/${language}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(templateData),
@@ -723,7 +762,7 @@ export async function adminUpdateTemplate(problemId: string, language: string, t
  */
 export async function adminDeleteProblem(problemId: string): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/problems/${problemId}`, {
+    const response = await AuthenticatedFetch(`/api/admin/problems/${problemId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     })
@@ -743,7 +782,7 @@ export const deleteProblem = adminDeleteProblem
  * Fetches all compete views and their populated problem data.
  */
 export async function fetchAllViews(): Promise<any> {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/views`);
+    const response = await AuthenticatedFetch(`/api/admin/views`);
     return await response.json();
 }
 
@@ -751,7 +790,7 @@ export async function fetchAllViews(): Promise<any> {
  * Creates or updates a compete view with the provided problem IDs.
  */
 export async function createOrUpdateView(name: string, problemIds: string[]): Promise<any> {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/views`, {
+    const response = await AuthenticatedFetch(`/api/admin/views`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, problem_ids: problemIds })
@@ -763,7 +802,7 @@ export async function createOrUpdateView(name: string, problemIds: string[]): Pr
  * Deletes a specified compete view.
  */
 export async function deleteView(name: string): Promise<any> {
-    const response = await fetch(`${API_BASE_DB_URL}/api/admin/views`, {
+    const response = await AuthenticatedFetch(`/api/admin/views`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -787,7 +826,7 @@ import type {
  */
 export async function fetchPlatformStats(): Promise<{ success: boolean; stats?: PlatformStats; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/analytics/stats`);
+    const response = await AuthenticatedFetch(`/api/analytics/stats`);
     return await response.json();
   } catch (error) {
     return { success: false, error: String(error) };
@@ -808,7 +847,7 @@ export async function fetchAllUsersAnalytics(
     if (search) params.append('search', search);
     if (filter) params.append('filter', filter);
     
-    const response = await fetch(`${API_BASE_DB_URL}/api/analytics/users?${params}`);
+    const response = await AuthenticatedFetch(`/api/analytics/users?${params}`);
     return await response.json();
   } catch (error) {
     console.log('error: ',error)
@@ -821,7 +860,7 @@ export async function fetchAllUsersAnalytics(
  */
 export async function fetchStudentDetails(uid: string): Promise<{ success: boolean; profile?: StudentDetailedProfile; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/analytics/users/${uid}`);
+    const response = await AuthenticatedFetch(`/api/analytics/users/${uid}`);
     return await response.json();
   } catch (error) {
     return { success: false, error: String(error) };
@@ -833,7 +872,7 @@ export async function fetchStudentDetails(uid: string): Promise<{ success: boole
  */
 export async function fetchDifficultyVelocity(): Promise<{ success: boolean; data?: DifficultyVelocityData[]; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/analytics/charts/velocity`);
+    const response = await AuthenticatedFetch(`/api/analytics/charts/velocity`);
     return await response.json();
   } catch (error) {
     return { success: false, error: String(error) };
@@ -845,7 +884,7 @@ export async function fetchDifficultyVelocity(): Promise<{ success: boolean; dat
  */
 export async function fetchAIAssistanceData(): Promise<{ success: boolean; data?: AIAssistanceData[]; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/analytics/charts/ai-assistance`);
+    const response = await AuthenticatedFetch(`/api/analytics/charts/ai-assistance`);
     return await response.json();
   } catch (error) {
     return { success: false, error: String(error) };
@@ -856,14 +895,14 @@ export async function fetchAIAssistanceData(): Promise<{ success: boolean; data?
  * Export global system CSV.
  */
 export function handleGlobalExportCSV(): void {
-  window.location.href = `${API_BASE_DB_URL}/api/analytics/export/system`;
+  window.location.href = `/api/analytics/export/system`;
 }
 
 /**
  * Export individual student CSV ledger.
  */
 export function handleStudentExportCSV(uid: string): void {
-  window.location.href = `${API_BASE_DB_URL}/api/analytics/export/user/${uid}`;
+  window.location.href = `/api/analytics/export/user/${uid}`;
 }
 
 // ============================================================================
@@ -872,13 +911,13 @@ export function handleStudentExportCSV(uid: string): void {
 
 /**
  * Check if a user is an admin.
- * GET /api/auth/check-admin?uid=<uid>
+ * GET /api/auth/check-admin
  *
  * Expected backend response: { success: boolean, is_admin: boolean }
  */
-export async function checkAdminStatus(uid: string): Promise<boolean> {
+export async function checkAdminStatus(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_DB_URL}/api/auth/check-admin?uid=${encodeURIComponent(uid)}`)
+    const response = await AuthenticatedFetch(`/api/auth/check-admin`)
     if (!response.ok) return false
     const data = await response.json()
     return data.success === true && data.is_admin === true

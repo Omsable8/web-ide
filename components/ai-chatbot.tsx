@@ -73,7 +73,6 @@ export function AIChatbot({
 
     try {
       const response = await sendChatMessage({
-        uid: localStorage.getItem('uid') || '',
         pid: sessionStorage.getItem('problemID')||'',
         message: input,
         code: codeContext,
@@ -85,7 +84,7 @@ export function AIChatbot({
         content: response.response,
       }
       setMessages((prev) => [...prev, aiMessage])
-      updateFeaturesUsed(localStorage.getItem('uid')||'', sessionStorage.getItem('problemID')||'', {ai_used:1},{ai_used:aiUsed})
+      updateFeaturesUsed(sessionStorage.getItem('problemID')||'', {ai_used:1},{ai_used:aiUsed})
       setAiUsed(1)
     } catch (error) {
       console.error("[v0] Chat error:", error)

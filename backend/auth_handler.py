@@ -24,18 +24,11 @@ class AuthHandler:
         Returns:
             {
                 'success': True,
-                'user': {
-                    'uid': 'uuid',
-                    'name': 'John Doe',
-                    'email': 'john@example.com',
-                    'token': 'jwt-token'
+                'user': {'uid': 'uuid', 'name': 'John Doe', 'email': 'john@example.com'
                 }
             }
             OR
-            {
-                'success': False,
-                'error': 'Error message'
-            }
+            {'success': False, 'error': 'Error message'}
         """
         # 1. Check if email exists
         check = execute_read("SELECT uid FROM user_profiles WHERE email = :email", {"email": email})
@@ -55,21 +48,15 @@ class AuthHandler:
         
         try:
             # Execute and get the generated UUID
-            # Note: The 'returning' logic might vary slightly by driver, 
-            # but this is the standard SQLAlchemy/Postgres pattern.
             result = execute_write(sql, {"name": name, "email": email, "pw": pw_hash})
             
-            # Since execute_write commits and closes, we might not get the return value directly 
-            # depending on how SQLAlchemy wraps it. 
             # RELIABLE FALLBACK: Just fetch the user we just created.
             user = execute_read("SELECT uid, name, email FROM user_profiles WHERE email = :email", {"email": email})[0]
             
-            # Generate Token
-            token = f"{user['uid']}:{secrets.token_urlsafe(32)}"
             
             return {
                 'success': True,
-                'user': {'uid': str(user['uid']), 'name': user['name'], 'email': user['email'], 'token': token}
+                'user': {'uid': str(user['uid']), 'name': user['name'], 'email': user['email']}
             }
         except Exception as e:
             logger.log("AUTH ERROR",f"{e}")
@@ -89,8 +76,7 @@ class AuthHandler:
                 'user': {
                     'uid': 'uuid',
                     'name': 'John Doe',
-                    'email': 'john@example.com',
-                    'token': 'jwt-token'
+                    'email': 'john@example.com'
                 }
             }
             OR
@@ -108,30 +94,11 @@ class AuthHandler:
         
         # Verify Password
         if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-            token = f"{user['uid']}:{secrets.token_urlsafe(32)}"
             return {
                 'success': True,
-                'user': {'uid': str(user['uid']), 'name': user['name'], 'email': user['email'], 'token': token}
+                'user': {'uid': str(user['uid']), 'name': user['name'], 'email': user['email']}
             }
             
         return {'success': False, 'error': 'Invalid credentials'}
-
-    def verify_token(self, token):
-        """
-        Verify session token and return user info.
-        
-        Returns:
-            {'valid': True, 'uid': 'uuid'}
-            OR
-            {'valid': False, 'error': 'Invalid token'}
-        """
-        try:
-            uid, _ = token.split(':', 1)
-            users = execute_read("SELECT uid FROM user_profiles WHERE uid = :uid", {"uid": uid})
-            if users:
-                return {'valid': True, 'uid': str(users[0]['uid'])}
-        except:
-            pass
-        return {'valid': False, 'error': 'Invalid Token'}
     
     

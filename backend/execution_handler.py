@@ -1,8 +1,7 @@
-import json
-import traceback
+import json, requests, traceback
 from flask import Flask, app, request, jsonify
 from flask_cors import CORS
-import requests
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, JWTManager
 
 from config import Config
 from code_executor import CodeExecutor
@@ -13,13 +12,15 @@ printlogger = Logger()
 app = Flask(__name__)
 app.config.from_object(Config)
 # Enable CORS
-CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
+CORS(app, supports_credentials=True,origins=["http://localhost:3000"])
+JWT_MANAGER = JWTManager(app)
 
 # ============================================================================
 # Code Execution Endpoints
 # ============================================================================
 
 @app.route('/service/execute/code/run', methods=['POST'])
+@jwt_required()
 def run_code():
     """Execute code locally and return output"""
     
@@ -28,8 +29,6 @@ def run_code():
         code = data.get('code', '')
         language = data.get('language', 'python')
         input_data = data.get('input', None)
-
-        
         if not code:
             return jsonify({"success": False, "error": "No code provided"}), 400
         
@@ -42,6 +41,7 @@ def run_code():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/service/execute/problems/<problem_id>/run-tests', methods=['POST'])
+@jwt_required()
 def run_tests(problem_id):
     """Run user code against public test cases only using stdin/stdout"""
     
@@ -51,13 +51,14 @@ def run_tests(problem_id):
         user_code = data.get('code', '')
         language = data.get('language', 'python')
         custom_tests = data.get('custom_tests', [])
-        user_id = data.get('userId','')
+        user_id = get_jwt_identity()
+        access_token = request.cookies
         if not user_code.strip():
             return jsonify({"success": False, "error": "No code provided"}), 400
         
         
         # Get template with driver_code and solution_code
-        template_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/template?language={language}")
+        template_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/template?language={language}",cookies=access_token)
         if not template_response.status_code == 200:
             return jsonify({"success": False, "error": f"No template found for {language}"}), 401
         
@@ -66,7 +67,7 @@ def run_tests(problem_id):
         solution_code = template.get('solution_code', '')
         
         # Get only public test cases
-        test_cases_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/test-cases")
+        test_cases_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/test-cases", cookies=access_token)
         if not test_cases_response.status_code == 200:
             return jsonify({"success": False, "error": f"No Testcases found for {problem_id}"}), 401
         
@@ -131,6 +132,7 @@ def run_tests(problem_id):
 
 
 @app.route('/service/execute/problems/<problem_id>/submit', methods=['POST'])
+@jwt_required()
 def submit_code(problem_id):
     """Submit user code against public + private test cases using stdin/stdout"""
     
@@ -140,13 +142,13 @@ def submit_code(problem_id):
         user_code = data.get('code', '')
         language = data.get('language', 'python')
         custom_tests = data.get('custom_tests', [])
-        user_id = data.get('userId','')
-        
+        user_id = get_jwt_identity()
+        access_token = request.cookies
         if not user_code.strip():
             return jsonify({"success": False, "error": "No code provided"}), 400
         
         # Get template with driver_code and solution_code
-        template_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/template?language={language}")
+        template_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/template?language={language}", cookies=access_token)
         if not template_response.status_code == 200:
             return jsonify({"success": False, "error": f"No template found for {language}"}), 401
         
@@ -155,7 +157,7 @@ def submit_code(problem_id):
         solution_code = template.get('solution_code', '')
         
         # Get both public and private test cases
-        test_cases_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/test-cases")
+        test_cases_response = requests.get(f"http://localhost:{Config.DBPORT}/api/problems/{problem_id}/test-cases", cookies=access_token)
         if not test_cases_response.status_code == 200:
             return jsonify({"success": False, "error": f"No Testcases found for {problem_id}"}), 401
         

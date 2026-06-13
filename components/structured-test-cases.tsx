@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm';
+import { AuthenticatedFetch } from '@/lib/api'
 interface InputParam {
   name: string
   type: string
@@ -38,7 +39,7 @@ interface StructuredTestCasesProps {
   isSubmitMode?: boolean
 }
 export const simplifyError = async (error: string) =>
-  fetch('http://localhost:5002/service/ai/explain-failure',
+  AuthenticatedFetch('/service/ai/explain-failure',
     {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ error })

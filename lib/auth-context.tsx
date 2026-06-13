@@ -4,7 +4,6 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { checkAdminStatus } from '@/lib/api'
 
 interface User {
-  uid: string
   name: string
   email: string
 }
@@ -25,24 +24,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load user from localStorage on mount, then check admin status
+  // Load user from sessionStorage on mount, then check admin status
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
-    const storedIsAdmin = localStorage.getItem('isAdmin') === 'true'
+    
+    const storedUser = sessionStorage.getItem('user')
+    const storedIsAdmin = sessionStorage.getItem('isAdmin') === 'true'
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser)
         setUser(parsed)
         // Use cached admin status immediately, then re-verify in background
         setIsAdmin(storedIsAdmin)
-        checkAdminStatus(parsed.uid).then((result) => {
+        checkAdminStatus().then((result) => {
           setIsAdmin(result)
-          localStorage.setItem('isAdmin', String(result))
+          sessionStorage.setItem('isAdmin', String(result))
         })
       } catch (error) {
         console.error('Failed to parse stored user:', error)
-        localStorage.removeItem('user')
-        localStorage.removeItem('isAdmin')
+        sessionStorage.removeItem('user')
+        sessionStorage.removeItem('isAdmin')
       }
     }
     setIsLoading(false)
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       const response = await fetch('/api/auth/login', {
-        method: 'POST',
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
@@ -65,20 +65,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const innerUser = data.user
 
         const userData: User = {
-          uid: innerUser.uid,
           name: innerUser.name,
           email: innerUser.email,
         }
 
         // Check admin status before resolving
-        const adminResult = await checkAdminStatus(userData.uid)
+        const adminResult = await checkAdminStatus()
 
         setUser(userData)
         setIsAdmin(adminResult)
 
-        localStorage.setItem('user', JSON.stringify(userData))
-        localStorage.setItem('uid', innerUser.uid)
-        localStorage.setItem('isAdmin', String(adminResult))
+        sessionStorage.setItem('user', JSON.stringify(userData))
+        sessionStorage.setItem('isAdmin', String(adminResult))
       } else {
         console.error('Login failed or user data missing:', data)
       }
@@ -91,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       const response = await fetch('/api/auth/signup', {
-        method: 'POST',
+        method: 'POST', credentials:'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       })
@@ -104,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const innerUser = data.user
 
         const userData: User = {
-          uid: innerUser.uid,
           name: innerUser.name,
           email: innerUser.email,
         }
@@ -113,9 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData)
         setIsAdmin(false)
 
-        localStorage.setItem('user', JSON.stringify(userData))
-        localStorage.setItem('uid', innerUser.uid)
-        localStorage.setItem('isAdmin', 'false')
+        sessionStorage.setItem('user', JSON.stringify(userData))
+        sessionStorage.setItem('isAdmin', 'false')
       } else {
         console.error('Signup failed or user data missing:', data)
       }
@@ -125,11 +121,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    
     setUser(null)
     setIsAdmin(false)
-    localStorage.removeItem('user')
-    localStorage.removeItem('uid')
-    localStorage.removeItem('isAdmin')
+    sessionStorage.removeItem('user')
+    sessionStorage.removeItem('isAdmin')
   }
 
   return (
