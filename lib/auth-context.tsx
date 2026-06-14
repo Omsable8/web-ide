@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { checkAdminStatus } from '@/lib/api'
+import { AuthenticatedFetch, checkAdminStatus } from '@/lib/api'
 
 interface User {
   name: string
@@ -120,8 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = () => {
-    
+  const logout = async () => {
+    const resp = await fetch('/api/auth/logout')
+    const data = await resp.json()
+    console.log(data.message)
     setUser(null)
     setIsAdmin(false)
     sessionStorage.removeItem('user')

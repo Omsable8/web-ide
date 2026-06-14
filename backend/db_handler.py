@@ -161,6 +161,12 @@ def login():
 
     return resp,201
 
+@app.route('/api/auth/logout')
+def logout():
+    resp = jsonify({'success':True, 'message':'logout successful!'})
+    unset_jwt_cookies(response=resp)
+    return resp
+
 @app.route('/token/refresh')
 @jwt_required(refresh=True)
 def refresh_token():
