@@ -1,7 +1,7 @@
 import json, requests, traceback
 from flask import Flask, app, request, jsonify
 from flask_cors import CORS
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, JWTManager
+from flask_jwt_extended import jwt_required, get_jwt_identity, JWTManager
 
 from config import Config
 from code_executor import CodeExecutor
@@ -91,13 +91,15 @@ def run_tests(problem_id):
         # Build stdin string
         stdin_string = build_stdin(all_test_inputs, language)
         # Execute user code
-        user_result = CodeExecutor.execute(user_code + '\n' + driver_code , language, stdin_string)
+        final_code = driver_code.replace("---INSERT USER CODE HERE---", user_code)
+        user_result = CodeExecutor.execute(final_code , language, stdin_string)
         if not user_result.get('success'):
             return jsonify({"success": False, "error": user_result.get('error', '')})
         user_outputs = user_result.get('output', '').strip().split('---SEP---') if user_result.get('output') else []
         
         # Execute solution code
-        solution_result = CodeExecutor.execute(solution_code + '\n' + driver_code, language, stdin_string)
+        final_code_solution = driver_code.replace('---INSERT USER CODE HERE---', solution_code)
+        solution_result = CodeExecutor.execute(final_code_solution, language, stdin_string)
         expected_outputs = solution_result.get('output', '').strip().split('---SEP---') if solution_result.get('output') else []
         
         # Match outputs with test cases
@@ -172,13 +174,15 @@ def submit_code(problem_id):
         # Build stdin string - single execution for all tests
         stdin_string = build_stdin(all_test_inputs, language)
         # Execute user code once with all tests
-        user_result = CodeExecutor.execute(user_code + '\n' + driver_code, language, stdin_string)
+        final_code = driver_code.replace("---INSERT USER CODE HERE---", user_code)
+        user_result = CodeExecutor.execute(final_code , language, stdin_string)
         if not user_result.get('success'):
             return jsonify({"success": False, "error": user_result.get('error', '')})
         user_outputs = user_result.get('output', '').strip().split('---SEP---') if user_result.get('output') else []
         
         # Execute solution code once with all tests
-        solution_result = CodeExecutor.execute(solution_code + '\n' + driver_code, language, stdin_string)
+        final_code_solution = driver_code.replace('---INSERT USER CODE HERE---', solution_code)
+        solution_result = CodeExecutor.execute(final_code_solution, language, stdin_string)
         expected_outputs = solution_result.get('output', '').strip().split('---SEP---') if solution_result.get('output') else []
         
         # Match outputs with test cases

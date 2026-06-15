@@ -40,7 +40,10 @@ export async function AuthenticatedFetch(
       response = await fetch(input, options);
     } else {
       // Refresh token also failed or expired -> Redirect user to login page
-      console.warn("Session expired. Redirecting to login.");
+      alert("Session expired. Please Login Again Redirecting to login.");
+      sessionStorage.removeItem('user')
+      sessionStorage.removeItem('isAdmin')
+      const logout_resp = await fetch('/api/auth/logout')
       window.location.href = '/login';
     }
   }
