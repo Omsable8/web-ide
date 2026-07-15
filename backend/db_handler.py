@@ -363,12 +363,12 @@ def admin_create_problem():
                 "tc": problem.get('time_complexity'),
                 "sc": problem.get('space_complexity')
             }
-        )
+        ).scalar()
 
         # 2. Insert Hints if provided
         execute_write(
             "INSERT INTO hints (problem_id, hints_data) VALUES (:pid, :hints_data)",
-            {"pid": problem_id, "hints_data":data.get('hints')}
+            {"pid": problem_id, "hints_data": json.dumps(data.get('hints')) }
         )
 
         # 3. Insert test_cases
@@ -376,13 +376,13 @@ def admin_create_problem():
             execute_write(
                 """INSERT INTO test_cases (problem_id, input_params, is_hidden) 
                     VALUES (:pid, :input_params, :is_hidden)""",
-                {"pid": problem_id, "input_params": data.get('public_test_cases'), "is_hidden": False}
+                {"pid": problem_id, "input_params": json.dumps( data.get('public_test_cases')), "is_hidden": False}
             )
         if data.get('private_test_cases'):
             execute_write(
                 """INSERT INTO test_cases (problem_id, input_params, is_hidden) 
                     VALUES (:pid, :input_params, :is_hidden)""",
-                {"pid": problem_id, "input_params": data.get('private_test_cases'), "is_hidden": True}
+                {"pid": problem_id, "input_params": json.dumps(data.get('private_test_cases')) , "is_hidden": True}
             )
 
         # 4. Insert Code Templates

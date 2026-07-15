@@ -289,19 +289,20 @@ def build_stdin(test_inputs, language):
     for test_input in test_inputs:
         # Each test_input is a list of dict like: [{'name': 'nums', 'type': 'array', 'value': [2, 7, 11, 15]}, {'name': 'target', 'type': 'integer', 'value': 9}]
         
-        
         for param in test_input:
             value = param.get('value', '')
             param_type = param.get('type', 'string')
             
-            if (param_type == "array" or param_type=="linked_list") and isinstance(value,list):
+            if (param_type == "array" or param_type=="linked_list" or param_type=="tree") and isinstance(value,list):
                 # length of array
                 lines.append(str(len(value)))
+                value = [v if v!=None else 'null' for v in value] #for trees
                 # Convert list to space-separated values
                 lines.append(' '.join(map(str, value)))
-            elif (param_type == "array" or param_type=="linked_list") and isinstance(value,str):
+            elif (param_type == "array" or param_type=="linked_list" or param_type=="tree") and isinstance(value,str):
                 # Convert list to space-separated values
                 value_list = json.loads(value)
+                value_list = [value if value != None else 'null' for value in value_list]
                 # length of array
                 lines.append(str(len(value_list)))
                 lines.append(' '.join(map(str, value_list)))

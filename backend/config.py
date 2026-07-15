@@ -20,8 +20,8 @@ class Config:
     JWT_SECRET_KEY = "change-this-to-a-secure-key"
     JWT_TOKEN_LOCATION = ["cookies"]
 
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
-    JWT_REFRESH_TOKEN_EXPIRES = timedelta(minutes=10)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=30)
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
     JWT_COOKIE_SECURE = False    
     JWT_COOKIE_SAMESITE = 'Lax'
     JWT_COOKIE_CSRF_PROTECT = True
